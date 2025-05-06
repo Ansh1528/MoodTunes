@@ -1,0 +1,11 @@
+flask==3.1.0
+flask-cors==5.0.1
+python-dotenv==1.0.1
+flask-sqlalchemy==3.1.1
+flask-migrate==4.0.5
+flask-jwt-extended==4.6.0
+werkzeug>=3.1.0
+bcrypt==4.1.2
+mysqlclient==2.2.4
+pymysql==1.1.0
+cryptography==44.0.3
