@@ -2,27 +2,105 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import DocLayout from '../components/DocLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
+import axios from 'axios';
+
+const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function Journal() {
   const [entries, setEntries] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [newEntry, setNewEntry] = useState('');
-  const [moodAnalysis, setMoodAnalysis] = useState(null);
   const [error, setError] = useState('');
+  const [currentMood, setCurrentMood] = useState(null);
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    // Fetch existing entries when component mounts
+    const fetchEntries = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.error('No authentication token found');
+          return;
+        }
+        
+        console.log('Fetching journal entries...'); // Debug log
+        const response = await axios.get(`${BACKEND_URL}/api/journal`, {
+          headers: { 
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        console.log('Received entries:', response.data); // Debug log
+        if (Array.isArray(response.data)) {
+          setEntries(response.data);
+        } else {
+          console.error('Invalid response format:', response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching entries:', error);
+        if (error.response?.status === 401) {
+          setError('Session expired. Please log in again.');
+          // You might want to redirect to login here
+        } else if (error.response?.data?.error) {
+          setError(error.response.data.error);
+        } else {
+          setError('Failed to load journal entries');
+        }
+      }
+    };
+    fetchEntries();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newEntry.trim()) return;
 
     setIsLoading(true);
+    setError('');
     try {
-      const result = await analyzeMood(newEntry);
-      setMoodAnalysis(result);
-      setEntries([...entries, { id: entries.length + 1, content: newEntry, created_at: new Date().toISOString(), mood_tags: result.mood.tags, mood_score: result.mood.score }]);
-      setNewEntry('');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
+        return;
+      }
+      const response = await axios.post(
+        `${BACKEND_URL}/api/journal`,
+        { content: newEntry },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      if (response.data.success) {
+        const newEntry = response.data.entry;
+        console.log('Saved entry:', newEntry); // Debug log
+        setEntries(prevEntries => [newEntry, ...prevEntries]); // Add to beginning of list
+        setNewEntry('');
+        setResult({
+          mood: newEntry.mood || newEntry.mood_tags, // Handle both formats
+          confidence: newEntry.mood_score
+        });
+      } else {
+        console.error('Server response indicated failure:', response.data);
+        setError('Failed to save entry: ' + (response.data.error || 'Unknown error'));
+      }
     } catch (error) {
-      console.error('Error analyzing mood:', error);
-      setError('Failed to analyze mood. Please try again.');
+      console.error('Error saving entry:', error);
+      if (error.response?.status === 422) {
+        setError('Invalid data format. Please try again.');
+      } else if (error.response?.status === 401) {
+        setError('Session expired. Please log in again.');
+        // Optionally redirect to login page
+      } else if (error.response?.data?.error) {
+        setError('Failed to save entry: ' + error.response.data.error);
+      } else if (error.message) {
+        setError('Failed to save entry: ' + error.message);
+      } else {
+        setError('Failed to save journal entry. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -39,7 +117,7 @@ function Journal() {
   return (
     <DocLayout
       title="Journal"
-      description="Express yourself through words and music"
+      description="Express your thoughts and feelings"
     >
       <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 space-y-8">
         {/* Journal Entry Form */}
@@ -92,17 +170,21 @@ function Journal() {
                 } text-white transition-all duration-200`}
               >
                 {isLoading ? (
-                  <>
-                    <LoadingSpinner />
-                    <span>Analyzing...</span>
-                  </>
-                ) : (
+                  <>                    <LoadingSpinner />
+                    <span>Saving...</span>
+                  </>                ) : (
                   'Save Entry'
                 )}
               </motion.button>
             </div>
           </form>
         </motion.div>
+        {result && (
+        <div className="mt-4">
+          <h3 className="text-xl">Detected Mood: <span className="font-bold">{result.mood}</span></h3>
+          <p>Confidence: {result.confidence}%</p>
+        </div>
+      )}
 
         {/* Journal Entries List */}
         <div className="space-y-6">
@@ -112,8 +194,7 @@ function Journal() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="text-center text-gray-400 py-8"
-            >
-              No entries yet. Start writing to track your moods!
+            >              No entries yet. Start writing your thoughts!
             </motion.p>
           ) : (
             <div className="grid grid-cols-1 gap-6">
@@ -126,35 +207,13 @@ function Journal() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, scale: 0.9 }}
                     className="bg-white/5 rounded-xl p-4 sm:p-6 border border-white/10 space-y-4"
-                  >
-                    <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                  >                    <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
                       <span className="text-sm text-gray-400">
                         {formatDate(entry.created_at)}
                       </span>
-                      <div className="flex flex-wrap gap-2">
-                        {entry.mood_tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-3 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
                     </div>
                     
                     <p className="text-white/90 whitespace-pre-wrap">{entry.content}</p>
-                    
-                    <div className="pt-4 border-t border-white/10">
-                      <div className="flex flex-col sm:flex-row gap-4 text-sm text-gray-400">
-                        <div>
-                          Mood Intensity:{' '}
-                          <span className="text-blue-400">
-                            {Math.round(entry.mood_score * 100)}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
                   </motion.div>
                 ))}
               </AnimatePresence>

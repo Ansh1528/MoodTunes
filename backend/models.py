@@ -21,7 +21,5 @@ class User(db.Model):
 class JournalEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
-    mood_score = db.Column(db.Float)
-    mood_tags = db.Column(db.String(200))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)

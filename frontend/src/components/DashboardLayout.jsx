@@ -1,15 +1,13 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaPencilAlt, FaHistory, FaMusic, FaChartLine } from 'react-icons/fa';
+import { FaPencilAlt, FaHistory } from 'react-icons/fa';
 
 const DashboardLayout = ({ children }) => {
   const location = useLocation();
   
   const sidebarLinks = [
     { to: '/dashboard/new-journal', icon: FaPencilAlt, label: 'New Journal' },
-    { to: '/dashboard/favorite-songs', icon: FaMusic, label: 'Favorite Songs' },
     { to: '/dashboard/history', icon: FaHistory, label: 'Mood/Journal History' },
-    { to: '/dashboard/trending', icon: FaChartLine, label: 'Trending Songs' },
   ];
 
   return (

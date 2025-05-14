@@ -34,29 +34,20 @@ function AnimatedRoutes() {
             <SignUp />
           </PageTransition>
         } />
-        <Route path="/journal" element={
-          <PageTransition>
-            <ProtectedRoute>
-              <Journal />
-            </ProtectedRoute>
-          </PageTransition>
-        } />
         <Route path="/about" element={
           <PageTransition>
             <About />
           </PageTransition>
         } />
-        
-        {/* Dashboard Routes */}
         <Route path="/dashboard/*" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
+          <PageTransition>
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          </PageTransition>
         }>
           <Route path="new-journal" element={<Journal />} />
-          <Route path="favorite-songs" element={null} />
-          <Route path="history" element={null} />
-          <Route path="trending" element={null} />
+          <Route path="history" element={<History />} />
         </Route>
       </Routes>
     </AnimatePresence>
@@ -65,20 +56,18 @@ function AnimatedRoutes() {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <ScrollToTop />
-        <KeyboardShortcuts />
-        <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900">
-          <Routes>
-            {/* Hide navbar on dashboard routes */}
-           
-            <Route path="*" element={<Navbar />} />
-          </Routes>
-          <AnimatedRoutes />
+    <Router>
+      <AuthProvider>
+        <div className="flex flex-col min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white">
+          <Navbar />
+          <ScrollToTop />
+          <KeyboardShortcuts />
+          <main className="flex-grow">
+            <AnimatedRoutes />
+          </main>
         </div>
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 
