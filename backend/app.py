@@ -9,15 +9,29 @@ from datetime import datetime
 import pymysql
 from config import Config
 from models import db, User, JournalEntry
+from transformers import pipeline
+import os
+from dotenv import load_dotenv
 
 # Configure PyMySQL to be used with SQLAlchemy
 pymysql.install_as_MySQLdb()
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 app.config.from_object(Config)
 CORS(app)
 jwt = JWTManager(app)
 db.init_app(app)
+
+# Initialize the sentiment analysis pipeline
+# Using a model specifically trained for emotion analysis
+emotion_analyzer = pipeline(
+    "text-classification",
+    model="j-hartmann/emotion-english-distilroberta-base",
+    return_all_scores=True
+)
 
 with app.app_context():
     db.create_all()
@@ -148,5 +162,47 @@ def get_mood_history(user_id):
             'error': str(e)
         }), 500
 
+@app.route('/api/analyze-mood', methods=['POST'])
+def analyze_mood():
+    try:
+        data = request.json
+        text = data.get('text')
+        
+        if not text:
+            return jsonify({'error': 'No text provided'}), 400
+
+        # Get emotion analysis
+        results = emotion_analyzer(text)[0]
+        
+        # Sort emotions by score
+        sorted_emotions = sorted(results, key=lambda x: x['score'], reverse=True)
+        
+        # Get primary emotion (highest score)
+        primary_emotion = sorted_emotions[0]
+        
+        # Get all emotions with score > 0.1
+        detected_emotions = [
+            {
+                'emotion': emotion['label'],
+                'score': round(emotion['score'] * 100, 2)
+            }
+            for emotion in sorted_emotions
+            if emotion['score'] > 0.1
+        ]
+
+        response = {
+            'mood': primary_emotion['label'],
+            'confidence': round(primary_emotion['score'] * 100, 2),
+            'emotions': [emotion['emotion'] for emotion in detected_emotions],
+            'detailed_emotions': detected_emotions
+        }
+        
+        return jsonify(response)
+
+    except Exception as e:
+        print(f"Error in mood analysis: {str(e)}")
+        return jsonify({'error': 'Failed to analyze mood'}), 500
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.getenv('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)

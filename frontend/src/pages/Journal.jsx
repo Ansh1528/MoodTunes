@@ -1,117 +1,43 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState } from 'react';
+import { motion } from 'framer-motion';
 import DocLayout from '../components/DocLayout';
-import LoadingSpinner from '../components/LoadingSpinner';
 import axios from 'axios';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function Journal() {
-  const [entries, setEntries] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [newEntry, setNewEntry] = useState('');
+  const [entry, setEntry] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [moodResult, setMoodResult] = useState(null);
   const [error, setError] = useState('');
-  const [currentMood, setCurrentMood] = useState(null);
-  const [result, setResult] = useState(null);
 
-  useEffect(() => {
-    // Fetch existing entries when component mounts
-    const fetchEntries = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.error('No authentication token found');
-          return;
-        }
-        
-        console.log('Fetching journal entries...'); // Debug log
-        const response = await axios.get(`${BACKEND_URL}/api/journal`, {
-          headers: { 
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-        console.log('Received entries:', response.data); // Debug log
-        if (Array.isArray(response.data)) {
-          setEntries(response.data);
-        } else {
-          console.error('Invalid response format:', response.data);
-        }
-      } catch (error) {
-        console.error('Error fetching entries:', error);
-        if (error.response?.status === 401) {
-          setError('Session expired. Please log in again.');
-          // You might want to redirect to login here
-        } else if (error.response?.data?.error) {
-          setError(error.response.data.error);
-        } else {
-          setError('Failed to load journal entries');
-        }
-      }
-    };
-    fetchEntries();
-  }, []);
+  const analyzeMood = async () => {
+    if (!entry.trim()) return;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!newEntry.trim()) return;
-
-    setIsLoading(true);
+    setIsAnalyzing(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('Authentication token not found. Please log in again.');
-        return;
-      }
       const response = await axios.post(
-        `${BACKEND_URL}/api/journal`,
-        { content: newEntry },
+        `${BACKEND_URL}/api/analyze-mood`,
+        { text: entry },
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         }
       );
-      if (response.data.success) {
-        const newEntry = response.data.entry;
-        console.log('Saved entry:', newEntry); // Debug log
-        setEntries(prevEntries => [newEntry, ...prevEntries]); // Add to beginning of list
-        setNewEntry('');
-        setResult({
-          mood: newEntry.mood || newEntry.mood_tags, // Handle both formats
-          confidence: newEntry.mood_score
-        });
-      } else {
-        console.error('Server response indicated failure:', response.data);
-        setError('Failed to save entry: ' + (response.data.error || 'Unknown error'));
-      }
-    } catch (error) {
-      console.error('Error saving entry:', error);
-      if (error.response?.status === 422) {
-        setError('Invalid data format. Please try again.');
-      } else if (error.response?.status === 401) {
-        setError('Session expired. Please log in again.');
-        // Optionally redirect to login page
-      } else if (error.response?.data?.error) {
-        setError('Failed to save entry: ' + error.response.data.error);
-      } else if (error.message) {
-        setError('Failed to save entry: ' + error.message);
-      } else {
-        setError('Failed to save journal entry. Please try again.');
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
+      setMoodResult({
+        mood: response.data.mood,
+        confidence: response.data.confidence,
+        emotions: response.data.emotions
+      });
+    } catch (error) {
+      console.error('Error analyzing mood:', error);
+      setError('Failed to analyze mood. Please try again.');
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -120,13 +46,12 @@ function Journal() {
       description="Express your thoughts and feelings"
     >
       <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 space-y-8">
-        {/* Journal Entry Form */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white/5 rounded-xl p-4 sm:p-6 border border-white/10"
         >
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-4">
             <div>
               <label htmlFor="journal-entry" className="sr-only">
                 Write your journal entry
@@ -134,9 +59,9 @@ function Journal() {
               <textarea
                 id="journal-entry"
                 rows="4"
-                value={newEntry}
+                value={entry}
                 onChange={(e) => {
-                  setNewEntry(e.target.value);
+                  setEntry(e.target.value);
                   setError('');
                 }}
                 placeholder="How are you feeling today?"
@@ -159,67 +84,56 @@ function Journal() {
                 Express your thoughts and feelings freely...
               </p>
               <motion.button
-                type="submit"
-                disabled={isLoading || !newEntry.trim()}
-                whileHover={!isLoading && newEntry.trim() ? { scale: 1.02 } : {}}
-                whileTap={!isLoading && newEntry.trim() ? { scale: 0.98 } : {}}
+                onClick={analyzeMood}
+                disabled={isAnalyzing || !entry.trim()}
+                whileHover={!isAnalyzing && entry.trim() ? { scale: 1.02 } : {}}
+                whileTap={!isAnalyzing && entry.trim() ? { scale: 0.98 } : {}}
                 className={`w-full sm:w-auto px-6 py-2 rounded-lg font-medium flex items-center justify-center gap-2 ${
-                  isLoading || !newEntry.trim()
+                  isAnalyzing || !entry.trim()
                     ? 'bg-gray-600 cursor-not-allowed'
                     : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600'
                 } text-white transition-all duration-200`}
               >
-                {isLoading ? (
-                  <>                    <LoadingSpinner />
-                    <span>Saving...</span>
-                  </>                ) : (
-                  'Save Entry'
-                )}
+                {isAnalyzing ? 'Analyzing...' : 'Analyze Mood'}
               </motion.button>
             </div>
-          </form>
+          </div>
         </motion.div>
-        {result && (
-        <div className="mt-4">
-          <h3 className="text-xl">Detected Mood: <span className="font-bold">{result.mood}</span></h3>
-          <p>Confidence: {result.confidence}%</p>
-        </div>
-      )}
 
-        {/* Journal Entries List */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-white">Your Journal Entries</h2>
-          {entries.length === 0 ? (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center text-gray-400 py-8"
-            >              No entries yet. Start writing your thoughts!
-            </motion.p>
-          ) : (
-            <div className="grid grid-cols-1 gap-6">
-              <AnimatePresence mode="popLayout">
-                {entries.map((entry) => (
-                  <motion.div
-                    key={entry.id}
-                    layout
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="bg-white/5 rounded-xl p-4 sm:p-6 border border-white/10 space-y-4"
-                  >                    <div className="flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-                      <span className="text-sm text-gray-400">
-                        {formatDate(entry.created_at)}
+        {moodResult && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white/5 rounded-xl p-6 border border-white/10"
+          >
+            <h3 className="text-xl font-semibold mb-4">Mood Analysis Results</h3>
+            <div className="space-y-4">
+              <div>
+                <p className="text-gray-400">Primary Mood:</p>
+                <p className="text-xl font-bold text-blue-400">{moodResult.mood}</p>
+              </div>
+              <div>
+                <p className="text-gray-400">Confidence:</p>
+                <p className="text-lg">{moodResult.confidence}%</p>
+              </div>
+              {moodResult.emotions && moodResult.emotions.length > 0 && (
+                <div>
+                  <p className="text-gray-400">Detected Emotions:</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {moodResult.emotions.map((emotion, index) => (
+                      <span
+                        key={index}
+                        className="px-3 py-1 bg-blue-500/20 rounded-full text-sm"
+                      >
+                        {emotion}
                       </span>
-                    </div>
-                    
-                    <p className="text-white/90 whitespace-pre-wrap">{entry.content}</p>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </motion.div>
+        )}
       </div>
     </DocLayout>
   );
