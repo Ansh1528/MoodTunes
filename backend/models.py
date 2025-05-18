@@ -19,7 +19,7 @@ class User(db.Document):
 
 class JournalEntry(db.Document):
     content = db.StringField(required=True)
-    created_at = db.DateTimeField(default=datetime.utcnow)
+    created_at = db.DateTimeField(default=datetime.now)
     user_id = db.ReferenceField('User', required=True)
     mood_data = db.DictField()
     meta = {

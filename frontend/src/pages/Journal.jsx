@@ -15,7 +15,7 @@ function Journal() {
   const [isSaving, setIsSaving] = useState(false);
   const [moodResult, setMoodResult] = useState(null);
   const [error, setError] = useState('');
-  const [saveToHistory, setSaveToHistory] = useState(true);
+  const [dontSaveEntry, setDontSaveEntry] = useState(false);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -83,6 +83,11 @@ function Journal() {
         console.log('Setting mood result with data:', JSON.stringify(moodData, null, 2));
         setMoodResult(moodData);
         setError('');
+
+        // Auto-save the entry if user hasn't opted out
+        if (!dontSaveEntry) {
+          await saveEntry(moodData);
+        }
       } else {
         throw new Error('Invalid response from mood analysis');
       }
@@ -103,10 +108,6 @@ function Journal() {
   const validateEntry = () => {
     if (!entry.trim()) {
       setError('Please write something in your journal entry.');
-      return false;
-    }
-    if (!saveToHistory) {
-      setError('Please enable saving to history to save your entry.');
       return false;
     }
     return true;
@@ -163,7 +164,7 @@ function Journal() {
     };
   };
 
-  const saveEntry = async () => {
+  const saveEntry = async (moodData = moodResult) => {
     if (!validateEntry()) return;
 
     setIsSaving(true);
@@ -186,23 +187,12 @@ function Journal() {
 
       // Validate and format mood data
       let validatedMoodData = null;
-      if (moodResult) {
+      if (moodData) {
         try {
-          console.log('Attempting to validate mood data:', {
-            moodResult,
-            type: typeof moodResult,
-            keys: Object.keys(moodResult)
-          });
-          
-          validatedMoodData = validateMoodData(moodResult);
-          console.log('Successfully validated mood data:', validatedMoodData);
+          validatedMoodData = validateMoodData(moodData);
         } catch (error) {
-          console.error('Mood data validation error:', {
-            error: error.message,
-            moodResult,
-            stack: error.stack
-          });
-          setError(error.message);
+          console.error('Mood data validation error:', error);
+          setError(`Invalid mood data: ${error.message}`);
           return;
         }
       }
@@ -212,109 +202,52 @@ function Journal() {
         mood: validatedMoodData
       };
 
-      console.log('Preparing to save journal entry:', {
-        contentLength: entryContent.length,
-        hasMoodData: !!validatedMoodData,
-        moodData: validatedMoodData ? {
-          primary_mood: {
-            value: validatedMoodData.primary_mood,
-            type: typeof validatedMoodData.primary_mood,
-            length: validatedMoodData.primary_mood.length
-          },
-          confidence: {
-            value: validatedMoodData.confidence,
-            type: typeof validatedMoodData.confidence,
-            isValid: !isNaN(validatedMoodData.confidence) && validatedMoodData.confidence > 0 && validatedMoodData.confidence <= 100
-          },
-          emotions: {
-            count: validatedMoodData.emotions.length,
-            types: validatedMoodData.emotions.map(e => typeof e),
-            values: validatedMoodData.emotions
+      const response = await axios.post(
+        `${BACKEND_URL}/api/journal`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
           }
-        } : null
-      });
-
-      try {
-        console.log('Sending request with payload:', JSON.stringify(payload, null, 2));
-        console.log('Request headers:', {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        });
-
-        const response = await axios.post(
-          `${BACKEND_URL}/api/journal`,
-          payload,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          }
-        );
-        
-        // Success response will have success: true
-        if (response.data?.success) {
-          console.log('Successfully saved journal entry:', response.data);
-          setEntry('');
-          setMoodResult(null);
-          navigate('/dashboard/history');
-        } else {
-          throw new Error('Failed to save entry: Invalid response from server');
         }
-      } catch (error) {
-        // Log the complete error details
-        console.error('Journal Entry Save Error:', {
-          message: error.message,
-          status: error.response?.status,
-          data: error.response?.data
-        });
-
-        // Handle different types of errors
-        if (error.response?.status === 401) {
-          setError('Session expired. Please log in again.');
-          navigate('/login');
-        } else if (error.response?.status === 422) {
-          const errorData = error.response.data;
-          console.log('422 Validation Error:', {
-            error: errorData.error,
-            stage: errorData.validation_stage,
-            details: errorData.details,
-            moodData: errorData.mood_data,
-            fullResponse: error.response.data
-          });
-
-          let errorMessage = 'Validation Error: ';
-          
-          if (errorData.details?.validation_errors) {
-            errorMessage += errorData.details.validation_errors.join(', ');
-          } else if (errorData.details?.message) {
-            errorMessage += errorData.details.message;
-          } else if (errorData.error) {
-            errorMessage += errorData.error;
-          } else {
-            errorMessage = 'Failed to save entry: Invalid data format';
-          }
-
-          // Add validation stage context if available
-          if (errorData.validation_stage) {
-            errorMessage += ` (at ${errorData.validation_stage})`;
-          }
-          
-          setError(errorMessage);
-          
-          // Log additional context for debugging
-          if (errorData.mood_data) {
-            console.log('Failed mood data:', errorData.mood_data);
-          }
-        } else {
-          setError(error.response?.data?.error || error.message || 'Failed to save entry. Please try again.');
-        }
-      } finally {
-        setIsSaving(false);
+      );
+      
+      if (response.data?.success) {
+        console.log('Successfully saved journal entry');
+        setError('');
+      } else {
+        setError('Failed to save entry. Please try again.');
       }
     } catch (error) {
-      console.error('Unexpected error:', error);
-      setError('An unexpected error occurred. Please try again.');
+      console.error('Save error:', error);
+      
+      if (error.response?.status === 401) {
+        setError('Session expired. Please log in again.');
+        navigate('/login');
+      } else if (error.response?.status === 422) {
+        // Handle validation errors
+        const errorData = error.response.data;
+        console.log('Validation error details:', errorData);
+        
+        let errorMessage = 'Validation Error: ';
+        if (errorData.detail) {
+          errorMessage += errorData.detail;
+        } else if (errorData.message) {
+          errorMessage += errorData.message;
+        } else if (errorData.error) {
+          errorMessage += errorData.error;
+        } else {
+          errorMessage = 'Invalid data format. Please check your entry and try again.';
+        }
+        
+        setError(errorMessage);
+      } else {
+        const message = error.response?.data?.message || error.message || 'An unexpected error occurred';
+        setError(`Failed to save entry: ${message}`);
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -334,7 +267,10 @@ function Journal() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-white/5 rounded-xl p-4 sm:p-6 border border-white/10"
         >
-          <div className="space-y-4">
+          <form onSubmit={(e) => {
+            e.preventDefault();
+            analyzeMood();
+          }} className="space-y-4">
             <div>
               <label htmlFor="journal-entry" className="sr-only">
                 Write your journal entry
@@ -352,13 +288,13 @@ function Journal() {
             <div className="flex items-center">
               <input
                 type="checkbox"
-                id="save-to-history"
-                checked={saveToHistory}
-                onChange={(e) => setSaveToHistory(e.target.checked)}
+                id="dont-save-entry"
+                checked={dontSaveEntry}
+                onChange={(e) => setDontSaveEntry(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300 text-blue-500 focus:ring-blue-500 bg-black/20"
               />
-              <label htmlFor="save-to-history" className="ml-2 text-sm text-gray-300">
-                Save this entry to history
+              <label htmlFor="dont-save-entry" className="ml-2 text-sm text-gray-300">
+                Don't save this entry
               </label>
             </div>
 
@@ -378,7 +314,7 @@ function Journal() {
               </p>
               <div className="flex gap-4">
                 <motion.button
-                  onClick={analyzeMood}
+                  type="submit"
                   disabled={isAnalyzing || !entry.trim()}
                   whileHover={!isAnalyzing && entry.trim() ? { scale: 1.02 } : {}}
                   whileTap={!isAnalyzing && entry.trim() ? { scale: 0.98 } : {}}
@@ -390,23 +326,9 @@ function Journal() {
                 >
                   {isAnalyzing ? 'Analyzing...' : 'Analyze Mood'}
                 </motion.button>
-
-                <motion.button
-                  onClick={saveEntry}
-                  disabled={isSaving || !entry.trim() || !saveToHistory}
-                  whileHover={!isSaving && entry.trim() && saveToHistory ? { scale: 1.02 } : {}}
-                  whileTap={!isSaving && entry.trim() && saveToHistory ? { scale: 0.98 } : {}}
-                  className={`px-6 py-2 rounded-lg font-medium flex items-center justify-center gap-2 ${
-                    isSaving || !entry.trim() || !saveToHistory
-                      ? 'bg-gray-600 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600'
-                  } text-white transition-all duration-200`}
-                >
-                  {isSaving ? 'Saving...' : 'Save Entry'}
-                </motion.button>
               </div>
             </div>
-          </div>
+          </form>
         </motion.div>
 
         {moodResult && (
