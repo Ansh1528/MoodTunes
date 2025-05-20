@@ -8,10 +8,11 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from datetime import datetime
 from config import Config
 from models import db, User, JournalEntry
-from transformers import pipeline
+from transformers import pipeline, AutoModelForSequenceClassification, AutoTokenizer
 import os
 from dotenv import load_dotenv
 import json
+import logging
 
 # Load environment variables
 load_dotenv()
@@ -22,12 +23,330 @@ CORS(app)
 jwt = JWTManager(app)
 db.init_app(app)
 
-# Initialize the sentiment analysis pipeline
-emotion_analyzer = pipeline(
-    "text-classification",
-    model="j-hartmann/emotion-english-distilroberta-base",
-    return_all_scores=True
-)
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Updated Emotion categories mapping with emojis
+EMOTION_CATEGORIES = {
+    'Happy 😊': ['joy', 'happiness', 'delight', 'pleasure', 'cheerfulness'],
+    'Sad 😢': ['sadness', 'grief', 'sorrow', 'disappointment', 'loneliness'],
+    'Angry 😠': ['anger', 'annoyance', 'irritation', 'frustration', 'rage'],
+    'Fearful 😰': ['fear', 'anxiety', 'worry', 'nervousness', 'stress'],
+    'Surprised 😲': ['surprise', 'amazement', 'awe', 'wonder', 'shock'],
+    'Disgusted 🤢': ['disgust', 'revulsion', 'aversion', 'contempt'],
+    'Calm 😌': ['calm', 'relaxed', 'peaceful', 'serene', 'tranquil'],
+    'Excited ⚡': ['excitement', 'enthusiasm', 'eager', 'thrill', 'anticipation'],
+    'Loving 💝': ['love', 'affection', 'caring', 'tenderness', 'fondness', 'adoration'],
+    'Heartbroken 💔': ['heartbreak', 'heartbroken', 'broken heart', 'heart ache', 'emotional pain'],
+    'Motivated 💪': [
+        'determination', 'motivation', 'drive', 'ambition', 'passion', 'inspiration',
+        'purpose', 'focus', 'dedication', 'commitment', 'perseverance', 'resilience',
+        'achievement', 'success', 'progress', 'growth', 'improvement', 'development',
+        'goals', 'aspirations', 'dreams', 'vision', 'mission', 'purpose',
+        'empowerment', 'strength', 'courage', 'confidence', 'belief', 'hope',
+        'optimism', 'positivity', 'enthusiasm', 'energy', 'vitality', 'vigor',
+        'determined', 'motivated', 'driven', 'ambitious', 'passionate', 'inspired',
+        'focused', 'dedicated', 'committed', 'persevering', 'resilient',
+        'achieving', 'succeeding', 'progressing', 'growing', 'improving', 'developing',
+        'empowered', 'strong', 'courageous', 'confident', 'hopeful',
+        'optimistic', 'positive', 'energetic', 'vital', 'vigorous'
+    ],
+    'Neutral 😐': ['neutral', 'indifferent', 'unemotional']
+}
+
+# Emotion emoji mapping for individual emotions
+EMOTION_EMOJIS = {
+    'joy': '😊',
+    'happiness': '😄',
+    'delight': '🥰',
+    'pleasure': '😋',
+    'cheerfulness': '😃',
+    'sadness': '😢',
+    'grief': '😭',
+    'sorrow': '💔',
+    'disappointment': '😔',
+    'loneliness': '😞',
+    'anger': '😠',
+    'annoyance': '😤',
+    'irritation': '😒',
+    'frustration': '😫',
+    'rage': '😡',
+    'fear': '😰',
+    'anxiety': '😨',
+    'worry': '😟',
+    'nervousness': '😬',
+    'stress': '😓',
+    'surprise': '😲',
+    'amazement': '😮',
+    'awe': '🤩',
+    'wonder': '✨',
+    'shock': '😱',
+    'disgust': '🤢',
+    'revulsion': '🤮',
+    'aversion': '😖',
+    'contempt': '😏',
+    'calm': '😌',
+    'relaxed': '😌',
+    'peaceful': '🕊️',
+    'serene': '🌊',
+    'tranquil': '🌿',
+    'excitement': '⚡',
+    'enthusiasm': '🎉',
+    'eager': '✨',
+    'thrill': '🎢',
+    'anticipation': '🎯',
+    'love': '💝',
+    'affection': '💖',
+    'caring': '💗',
+    'tenderness': '💓',
+    'fondness': '💕',
+    'adoration': '💘',
+    'determination': '💪',
+    'motivation': '🔥',
+    'drive': '🚀',
+    'ambition': '⭐',
+    'passion': '❤️',
+    'inspiration': '💫',
+    'purpose': '🎯',
+    'focus': '🎯',
+    'dedication': '🎯',
+    'commitment': '🎯',
+    'perseverance': '💪',
+    'resilience': '💪',
+    'achievement': '🏆',
+    'success': '🏆',
+    'progress': '📈',
+    'growth': '🌱',
+    'improvement': '📈',
+    'development': '🌱',
+    'goals': '🎯',
+    'aspirations': '✨',
+    'dreams': '✨',
+    'vision': '👁️',
+    'mission': '🎯',
+    'empowerment': '💪',
+    'strength': '🦁',
+    'courage': '🦁',
+    'confidence': '💪',
+    'belief': '🙏',
+    'hope': '✨',
+    'optimism': '😊',
+    'positivity': '😊',
+    'energy': '⚡',
+    'vitality': '💫',
+    'vigor': '💪',
+    'neutral': '😐',
+    'indifferent': '😶',
+    'unemotional': '😑',
+    'heartbreak': '💔',
+    'heartbroken': '💔',
+    'broken heart': '💔',
+    'heart ache': '💔',
+    'emotional pain': '💔'
+}
+
+# Initialize the sentiment analysis pipeline with SamLowe model
+logger.info("Initializing emotion analyzer...")
+model_name = "SamLowe/roberta-base-go_emotions"
+
+try:
+    # Initialize tokenizer and model separately for better error handling
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(model_name)
+    
+    emotion_analyzer = pipeline(
+        "text-classification",
+        model=model,
+        tokenizer=tokenizer,
+        return_all_scores=True,
+        device=-1  # Use CPU by default
+    )
+    logger.info("Emotion analyzer initialized successfully")
+except Exception as e:
+    logger.error(f"Error initializing emotion analyzer: {str(e)}")
+    raise
+
+def map_emotion_to_category(emotion):
+    """Map the model's output emotions to our desired categories"""
+    emotion_mapping = {
+        'joy': 'Happy 😊',
+        'happiness': 'Happy 😊',
+        'delight': 'Happy 😊',
+        'pleasure': 'Happy 😊',
+        'cheerfulness': 'Happy 😊',
+        'sadness': 'Sad 😢',
+        'grief': 'Sad 😢',
+        'sorrow': 'Sad 😢',
+        'disappointment': 'Sad 😢',
+        'loneliness': 'Sad 😢',
+        'anger': 'Angry 😠',
+        'annoyance': 'Angry 😠',
+        'irritation': 'Angry 😠',
+        'frustration': 'Angry 😠',
+        'rage': 'Angry 😠',
+        'fear': 'Fearful 😰',
+        'anxiety': 'Fearful 😰',
+        'worry': 'Fearful 😰',
+        'nervousness': 'Fearful 😰',
+        'stress': 'Fearful 😰',
+        'surprise': 'Surprised 😲',
+        'amazement': 'Surprised 😲',
+        'awe': 'Surprised 😲',
+        'wonder': 'Surprised 😲',
+        'shock': 'Surprised 😲',
+        'disgust': 'Disgusted 🤢',
+        'revulsion': 'Disgusted 🤢',
+        'aversion': 'Disgusted 🤢',
+        'contempt': 'Disgusted 🤢',
+        'calm': 'Calm 😌',
+        'relaxed': 'Calm 😌',
+        'peaceful': 'Calm 😌',
+        'serene': 'Calm 😌',
+        'tranquil': 'Calm 😌',
+        'excitement': 'Excited ⚡',
+        'enthusiasm': 'Excited ⚡',
+        'eager': 'Excited ⚡',
+        'thrill': 'Excited ⚡',
+        'anticipation': 'Excited ⚡',
+        'love': 'Loving 💝',
+        'affection': 'Loving 💝',
+        'caring': 'Loving 💝',
+        'tenderness': 'Loving 💝',
+        'fondness': 'Loving 💝',
+        'adoration': 'Loving 💝',
+        'determination': 'Motivated 💪',
+        'motivation': 'Motivated 💪',
+        'drive': 'Motivated 💪',
+        'ambition': 'Motivated 💪',
+        'passion': 'Motivated 💪',
+        'inspiration': 'Motivated 💪',
+        'purpose': 'Motivated 💪',
+        'focus': 'Motivated 💪',
+        'dedication': 'Motivated 💪',
+        'commitment': 'Motivated 💪',
+        'perseverance': 'Motivated 💪',
+        'resilience': 'Motivated 💪',
+        'achievement': 'Motivated 💪',
+        'success': 'Motivated 💪',
+        'progress': 'Motivated 💪',
+        'growth': 'Motivated 💪',
+        'improvement': 'Motivated 💪',
+        'development': 'Motivated 💪',
+        'goals': 'Motivated 💪',
+        'aspirations': 'Motivated 💪',
+        'dreams': 'Motivated 💪',
+        'vision': 'Motivated 💪',
+        'mission': 'Motivated 💪',
+        'empowerment': 'Motivated 💪',
+        'strength': 'Motivated 💪',
+        'courage': 'Motivated 💪',
+        'confidence': 'Motivated 💪',
+        'belief': 'Motivated 💪',
+        'hope': 'Motivated 💪',
+        'optimism': 'Motivated 💪',
+        'positivity': 'Motivated 💪',
+        'energy': 'Motivated 💪',
+        'vitality': 'Motivated 💪',
+        'vigor': 'Motivated 💪',
+        'neutral': 'Neutral 😐',
+        'indifferent': 'Neutral 😐',
+        'unemotional': 'Neutral 😐'
+    }
+    return emotion_mapping.get(emotion, 'Neutral 😐')
+
+def preprocess_text(text):
+    """Preprocess text to better detect motivation-related phrases"""
+    motivation_phrases = {
+        'determined to': 'determination',
+        'motivated to': 'motivation',
+        'driven to': 'drive',
+        'committed to': 'commitment',
+        'focused on': 'focus',
+        'passionate about': 'passion',
+        'dedicated to': 'dedication',
+        'inspired to': 'inspiration',
+        'eager to': 'eagerness',
+        'excited to': 'excitement',
+        'looking forward to': 'anticipation',
+        'can\'t wait to': 'anticipation',
+        'ready to': 'determination',
+        'willing to': 'determination',
+        'going to': 'determination',
+        'plan to': 'determination',
+        'aim to': 'determination',
+        'striving to': 'determination',
+        'working to': 'determination',
+        'trying to': 'determination'
+    }
+    
+    # Convert to lowercase for matching
+    text_lower = text.lower()
+    
+    # Check for motivation phrases
+    for phrase, emotion in motivation_phrases.items():
+        if phrase in text_lower:
+            # Add the emotion explicitly to the text
+            text = f"{text} {emotion}"
+    
+    return text
+
+def group_emotions(emotions_with_scores):
+    """Group emotions into categories and calculate category scores"""
+    category_scores = {category: 0.0 for category in EMOTION_CATEGORIES.keys()}
+    category_emotions = {category: [] for category in EMOTION_CATEGORIES.keys()}
+    
+    # First pass: collect all emotions and their scores
+    for emotion in emotions_with_scores:
+        label = emotion['label']
+        score = emotion['score']
+        
+        # Map the emotion to our category
+        category = map_emotion_to_category(label)
+        
+        # Boost motivation-related emotions
+        if category == 'Motivated 💪':
+            score *= 1.5  # Increase the weight of motivation-related emotions
+        
+        # Add to category scores and emotions
+        category_scores[category] += score
+        category_emotions[category].append({
+            'emotion': label,
+            'emoji': EMOTION_EMOJIS.get(label, ''),
+            'score': round(score * 100, 2)
+        })
+    
+    # Second pass: normalize scores and filter low confidence emotions
+    min_confidence = 0.1  # Minimum confidence threshold
+    filtered_categories = {}
+    
+    for category, score in category_scores.items():
+        if score > min_confidence:
+            # Normalize the score
+            normalized_score = score / len(category_emotions[category]) if category_emotions[category] else score
+            filtered_categories[category] = normalized_score
+    
+    # Sort categories by score
+    sorted_categories = sorted(
+        [(category, score) for category, score in filtered_categories.items()],
+        key=lambda x: x[1],
+        reverse=True
+    )
+    
+    # Format the response
+    grouped_emotions = {
+        'primary_category': sorted_categories[0][0] if sorted_categories else 'Neutral 😐',
+        'categories': [
+            {
+                'name': category,
+                'score': round(score * 100, 2),
+                'emotions': sorted(category_emotions[category], key=lambda x: x['score'], reverse=True)
+            }
+            for category, score in sorted_categories
+        ]
+    }
+    
+    return grouped_emotions
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
@@ -296,44 +615,232 @@ def get_mood_history(user_id):
             'error': str(e)
         }), 500
 
+def detect_motivation(text):
+    """Directly detect motivation using pattern matching"""
+    # Convert to lowercase for matching
+    text_lower = text.lower()
+    
+    # Define motivation patterns
+    motivation_patterns = [
+        r'\b(determined|motivated|driven|committed|focused|passionate|dedicated|inspired)\b',
+        r'\b(going to|plan to|aim to|striving to|working to|trying to)\b',
+        r'\b(success|achieve|accomplish|reach|attain|succeed)\b',
+        r'\b(goal|target|objective|mission|purpose)\b',
+        r'\b(improve|grow|develop|progress|advance)\b',
+        r'\b(never give up|keep going|push through|stay strong)\b'
+    ]
+    
+    import re
+    
+    # Check each pattern and calculate motivation score
+    motivation_score = 0
+    for pattern in motivation_patterns:
+        matches = re.findall(pattern, text_lower)
+        if matches:
+            motivation_score += len(matches) * 0.2
+    
+    return motivation_score
+
+def detect_love(text):
+    """Directly detect love and relationship-related emotions"""
+    # Convert to lowercase for matching
+    text_lower = text.lower()
+    
+    # Define love and relationship patterns
+    love_patterns = [
+        # Relationship words
+        r'\b(relationship|love|romance|dating|partner|boyfriend|girlfriend|spouse|husband|wife)\b',
+        r'\b(couple|marriage|wedding|engagement|proposal|anniversary)\b',
+        r'\b(crush|infatuation|attraction|chemistry|connection|bond)\b',
+        
+        # Love feelings
+        r'\b(love|adore|cherish|care|date|affection|fondness|tenderness)\b',
+        r'\b(passion|desire|longing|yearning|devotion|commitment)\b',
+        r'\b(heart|soul|feelings|emotions|sentiment|attachment)\b',
+        
+        # Relationship actions
+        r'\b(together|dating|seeing|meeting|talking|chatting|connecting)\b',
+        r'\b(share|care|support|trust|understand|respect|appreciate)\b',
+        r'\b(kiss|hug|hold|touch|embrace|caress|comfort)\b',
+        
+        # Relationship states
+        r'\b(single|taken|committed|exclusive|serious|casual|complicated)\b',
+        r'\b(breakup|divorce|separation|reconciliation|reunion)\b',
+        
+        # Love expressions
+        r'\b(miss you|love you|care about|think about|dream about)\b',
+        r'\b(special|important|meaningful|precious|valuable)\b',
+        r'\b(forever|always|never|forever|eternal|endless)\b'
+    ]
+    
+    import re
+    
+    # Check each pattern and calculate love score
+    love_score = 0
+    for pattern in love_patterns:
+        matches = re.findall(pattern, text_lower)
+        if matches:
+            love_score += len(matches) * 0.2
+    
+    return love_score
+
+def detect_heartbreak(text):
+    """Directly detect heartbreak and emotional pain related emotions"""
+    # Convert to lowercase for matching
+    text_lower = text.lower()
+    
+    # Define heartbreak patterns
+    heartbreak_patterns = [
+        # Direct heartbreak words
+        r'\b(heartbreak|heartbroken|heartbreaking|broken heart|heart ache|emotional pain)\b',
+        r'\b(heart hurts|heart aching|heart pain|heart sore)\b',
+        
+        # Breakup related
+        r'\b(breakup|break up|broke up|breaking up|broken up)\b',
+        r'\b(separated|divorced|split|parted|ended)\b',
+        
+        # Emotional pain
+        r'\b(hurt|pain|ache|suffer|cry|tears|weep)\b',
+        r'\b(miss|longing|yearning|empty|void|alone)\b',
+        
+        # Rejection
+        r'\b(rejected|dumped|left|abandoned|betrayed)\b',
+        r'\b(unwanted|unloved|unappreciated|taken for granted)\b',
+        
+        # Healing
+        r'\b(moving on|getting over|healing|recovering|letting go)\b',
+        r'\b(accept|forgive|forget|move forward|start over)\b'
+    ]
+    
+    import re
+    
+    # Check each pattern and calculate heartbreak score
+    heartbreak_score = 0
+    for pattern in heartbreak_patterns:
+        matches = re.findall(pattern, text_lower)
+        if matches:
+            heartbreak_score += len(matches) * 0.2
+    
+    return heartbreak_score
+
 @app.route('/api/analyze-mood', methods=['POST'])
 def analyze_mood():
     try:
         data = request.json
-        text = data.get('text')
-        
-        if not text:
+        if not data or 'text' not in data:
             return jsonify({'error': 'No text provided'}), 400
 
-        # Get emotion analysis
-        results = emotion_analyzer(text)[0]
+        text = data.get('text')
+        logger.info(f"Analyzing text: {text}")
         
-        # Sort emotions by score
-        sorted_emotions = sorted(results, key=lambda x: x['score'], reverse=True)
-        
-        # Get primary emotion (highest score)
-        primary_emotion = sorted_emotions[0]
-        
-        # Get all emotions with score > 0.1
-        detected_emotions = [
-            emotion['label']  # Just get the label string directly
-            for emotion in sorted_emotions
-            if emotion['score'] > 0.1
-        ]
+        try:
+            # Check for motivation using pattern matching
+            motivation_score = detect_motivation(text)
+            logger.info(f"Motivation score: {motivation_score}")
+            
+            # Check for love using pattern matching
+            love_score = detect_love(text)
+            logger.info(f"Love score: {love_score}")
+            
+            # Check for heartbreak using pattern matching
+            heartbreak_score = detect_heartbreak(text)
+            logger.info(f"Heartbreak score: {heartbreak_score}")
+            
+            # Get emotion analysis from the model
+            results = emotion_analyzer(text)[0]
+            logger.info(f"Model emotion results: {results}")
+            
+            # Group emotions into categories
+            grouped_emotions = group_emotions(results)
+            
+            # If motivation score is high enough, override the primary emotion
+            if motivation_score > 0.3:  # Threshold for motivation detection
+                grouped_emotions['primary_category'] = 'Motivated 💪'
+                # Add motivation to the categories if not present
+                if not any(cat['name'] == 'Motivated 💪' for cat in grouped_emotions['categories']):
+                    grouped_emotions['categories'].append({
+                        'name': 'Motivated 💪',
+                        'score': round(motivation_score * 100, 2),
+                        'emotions': [{
+                            'emotion': 'motivation',
+                            'emoji': '💪',
+                            'score': round(motivation_score * 100, 2)
+                        }]
+                    })
+            
+            # If love score is high enough, override the primary emotion
+            if love_score > 0.3:  # Threshold for love detection
+                grouped_emotions['primary_category'] = 'Loving 💝'
+                # Add love to the categories if not present
+                if not any(cat['name'] == 'Loving 💝' for cat in grouped_emotions['categories']):
+                    grouped_emotions['categories'].append({
+                        'name': 'Loving 💝',
+                        'score': round(love_score * 100, 2),
+                        'emotions': [{
+                            'emotion': 'love',
+                            'emoji': '💝',
+                            'score': round(love_score * 100, 2)
+                        }]
+                    })
+            
+            # If heartbreak score is high enough, override the primary emotion
+            if heartbreak_score > 0.3:  # Threshold for heartbreak detection
+                grouped_emotions['primary_category'] = 'Heartbroken 💔'
+                # Add heartbreak to the categories if not present
+                if not any(cat['name'] == 'Heartbroken 💔' for cat in grouped_emotions['categories']):
+                    grouped_emotions['categories'].append({
+                        'name': 'Heartbroken 💔',
+                        'score': round(heartbreak_score * 100, 2),
+                        'emotions': [{
+                            'emotion': 'heartbreak',
+                            'emoji': '💔',
+                            'score': round(heartbreak_score * 100, 2)
+                        }]
+                    })
+            
+            # Get the primary emotion (highest score)
+            primary_emotion = max(results, key=lambda x: x['score'])
+            
+            # Format the response with emojis
+            response = {
+                'primary_mood': grouped_emotions['primary_category'],
+                'confidence': round(primary_emotion['score'] * 100, 2),
+                'emotions': [
+                    f"{map_emotion_to_category(emotion['label']).split(' ')[0]} {EMOTION_EMOJIS.get(emotion['label'], '')}"
+                    for emotion in results
+                    if emotion['score'] > 0.1
+                ],
+                'emotion_groups': grouped_emotions
+            }
+            
+            # If motivation was detected, add it to the emotions list
+            if motivation_score > 0.3:
+                response['emotions'].append(f"motivation 💪")
+            
+            # If love was detected, add it to the emotions list
+            if love_score > 0.3:
+                response['emotions'].append(f"love 💝")
+            
+            # If heartbreak was detected, add it to the emotions list
+            if heartbreak_score > 0.3:
+                response['emotions'].append(f"heartbreak 💔")
+            
+            logger.info(f"Analysis response: {json.dumps(response, indent=2)}")
+            return jsonify(response)
 
-        # Format the response exactly as needed for journal entry
-        response = {
-            'primary_mood': primary_emotion['label'],
-            'confidence': round(primary_emotion['score'] * 100, 2),
-            'emotions': detected_emotions  # Array of strings
-        }
-        
-        print("Mood analysis response:", response)
-        return jsonify(response)
+        except Exception as analysis_error:
+            logger.error(f"Error during analysis: {str(analysis_error)}")
+            return jsonify({
+                'error': 'Failed to analyze text',
+                'details': str(analysis_error)
+            }), 500
 
     except Exception as e:
-        print(f"Error in mood analysis: {str(e)}")
-        return jsonify({'error': 'Failed to analyze mood'}), 500
+        logger.error(f"Error in analyze_mood endpoint: {str(e)}")
+        return jsonify({
+            'error': 'Failed to process request',
+            'details': str(e)
+        }), 500
 
 # Error handling middleware
 @app.errorhandler(500)
