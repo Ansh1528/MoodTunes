@@ -11,12 +11,16 @@
   },
   "dependencies": {
     "axios": "^1.9.0",
+    "chart.js": "^4.4.9",
+    "dayjs": "^1.11.13",
     "framer-motion": "^12.9.4",
     "prop-types": "^15.8.1",
     "react": "^18.2.0",
+    "react-chartjs-2": "^5.3.0",
     "react-dom": "^18.2.0",
     "react-icons": "^5.5.0",
-    "react-router-dom": "^6.30.0"
+    "react-router-dom": "^6.30.0",
+    "recharts": "^2.15.3"
   },
   "devDependencies": {
     "@eslint/js": "^8.38.0",

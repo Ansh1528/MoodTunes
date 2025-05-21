@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import DocLayout from '../components/DocLayout';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { FaMusic, FaTimes } from 'react-icons/fa';
+import MoodPlaylists from '../components/MoodPlaylists';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -37,6 +39,105 @@ const getMoodGradient = (mood) => {
   return moodColors[moodKey];
 };
 
+const MusicFeedbackForm = ({ isOpen, onClose, onSubmit, currentMood }) => {
+  const [moodScore, setMoodScore] = useState(5);
+  const [feedback, setFeedback] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit({ moodScore, feedback });
+    setMoodScore(5);
+    setFeedback('');
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ x: '100%' }}
+          animate={{ x: 0 }}
+          exit={{ x: '100%' }}
+          transition={{ type: 'spring', damping: 20 }}
+          className="fixed right-0 top-0 h-screen w-96 bg-white/10 backdrop-blur-md border-l border-white/20 shadow-xl z-50"
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            overflow: 'hidden'
+          }}
+        >
+          <div className="h-full flex flex-col">
+            <div 
+              className="flex items-center justify-between p-6 bg-white/10 backdrop-blur-md border-b border-white/10"
+              style={{ position: 'sticky', top: 0, zIndex: 20 }}
+            >
+              <div className="flex items-center gap-3">
+                <FaMusic className="text-purple-400 text-xl" />
+                <h3 className="text-xl font-semibold text-white">Music Feedback</h3>
+              </div>
+              <button
+                onClick={onClose}
+                className="p-2 text-gray-400 hover:text-white transition-colors"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              <form onSubmit={handleSubmit} className="h-full flex flex-col p-6">
+                <div className="space-y-6 flex-1">
+                  <div>
+                    <label className="block text-white/80 mb-3">How's your mood now?</label>
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setMoodScore(value)}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                            moodScore === value
+                              ? 'bg-purple-500 text-white'
+                              : 'bg-white/10 text-white/60 hover:bg-white/20'
+                          }`}
+                        >
+                          {value}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex-1">
+                    <label className="block text-white/80 mb-3">How did the music affect you?</label>
+                    <textarea
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-3 text-white placeholder-white/40 focus:outline-none focus:border-purple-500 resize-none"
+                      placeholder="Share your thoughts about the music..."
+                    />
+                  </div>
+                </div>
+
+                <div 
+                  className="pt-6 border-t border-white/10 mt-6"
+                  style={{ position: 'sticky', bottom: 0, zIndex: 20 }}
+                >
+                  <button
+                    type="submit"
+                    className="w-full py-3 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors"
+                  >
+                    Submit Feedback
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
 function Journal() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -49,6 +150,9 @@ function Journal() {
   const [showPlaylist, setShowPlaylist] = useState(false);
   const moodAnalysisRef = useRef(null);
   const playlistRef = useRef(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackTimer, setFeedbackTimer] = useState(null);
+  const [currentPlaylist, setCurrentPlaylist] = useState(null);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -296,6 +400,12 @@ function Journal() {
 
   const handleMoodAction = (action) => {
     setShowPlaylist(true);
+    // Start the feedback timer when playlist is opened
+    const timer = setTimeout(() => {
+      setShowFeedback(true);
+    }, 60000); // 1 minute
+    setFeedbackTimer(timer);
+    setCurrentPlaylist(action);
     // Scroll to playlist after a short delay
     setTimeout(() => {
       playlistRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -309,6 +419,43 @@ function Journal() {
     setError('');
     setDontSaveEntry(false);  // Reset the checkbox
   };
+
+  const handleFeedbackSubmit = async (feedbackData) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        `${BACKEND_URL}/api/journal/feedback`,
+        {
+          playlist_id: currentPlaylist,
+          mood_score: feedbackData.moodScore,
+          feedback_text: feedbackData.feedback
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data?.success) {
+        setShowFeedback(false);
+        setCurrentPlaylist(null);
+      }
+    } catch (err) {
+      console.error('Error submitting feedback:', err);
+      setError('Failed to submit feedback. Please try again.');
+    }
+  };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (feedbackTimer) {
+        clearTimeout(feedbackTimer);
+      }
+    };
+  }, [feedbackTimer]);
 
   return (
     <DocLayout
@@ -498,48 +645,25 @@ function Journal() {
                 ref={playlistRef}
                 className={`bg-gradient-to-br ${getMoodGradient(moodResult?.primary_mood || 'calm')} backdrop-blur-sm rounded-xl p-6 border border-white/10 shadow-lg`}
               >
-                <h3 className="text-xl font-semibold mb-4">Recommended Playlist</h3>
-                <div className="space-y-4">
-                  <p className="text-gray-400">Based on your mood, we recommend:</p>
-                  <div className="space-y-3">
-                    {/* Placeholder for playlist items */}
-                    <div className="flex items-center gap-3 p-3 bg-white/10 backdrop-blur-sm rounded-lg hover:bg-white/20 transition-colors cursor-pointer">
-                      <div className={`w-12 h-12 bg-gradient-to-br ${getMoodGradient(moodResult?.primary_mood || 'calm')} rounded flex items-center justify-center`}>
-                        🎵
-                      </div>
-                      <div>
-                        <p className="text-base font-medium">Song Title</p>
-                        <p className="text-sm text-white/60">Artist Name</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-white/10 backdrop-blur-sm rounded-lg hover:bg-white/20 transition-colors cursor-pointer">
-                      <div className={`w-12 h-12 bg-gradient-to-br ${getMoodGradient(moodResult?.primary_mood || 'calm')} rounded flex items-center justify-center`}>
-                        🎵
-                      </div>
-                      <div>
-                        <p className="text-base font-medium">Song Title</p>
-                        <p className="text-sm text-white/60">Artist Name</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3 p-3 bg-white/10 backdrop-blur-sm rounded-lg hover:bg-white/20 transition-colors cursor-pointer">
-                      <div className={`w-12 h-12 bg-gradient-to-br ${getMoodGradient(moodResult?.primary_mood || 'calm')} rounded flex items-center justify-center`}>
-                        🎵
-                      </div>
-                      <div>
-                        <p className="text-base font-medium">Song Title</p>
-                        <p className="text-sm text-white/60">Artist Name</p>
-                      </div>
-                    </div>
-                  </div>
-                  <button className={`w-full mt-4 px-6 py-3 bg-gradient-to-r ${getMoodGradient(moodResult?.primary_mood || 'calm')} hover:bg-opacity-80 text-white text-base rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5`}>
-                    View Full Playlist
-                  </button>
-                </div>
+                <MoodPlaylists currentMood={moodResult?.primary_mood} />
               </motion.div>
             )}
           </div>
         )}
       </div>
+
+      <MusicFeedbackForm
+        isOpen={showFeedback}
+        onClose={() => {
+          setShowFeedback(false);
+          if (feedbackTimer) {
+            clearTimeout(feedbackTimer);
+            setFeedbackTimer(null);
+          }
+        }}
+        onSubmit={handleFeedbackSubmit}
+        currentMood={moodResult?.primary_mood}
+      />
     </DocLayout>
   );
 }

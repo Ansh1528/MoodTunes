@@ -48,6 +48,7 @@ function AnimatedRoutes() {
         }>
           <Route path="new-journal" element={<Journal />} />
           <Route path="history" element={<History />} />
+          
         </Route>
       </Routes>
     </AnimatePresence>

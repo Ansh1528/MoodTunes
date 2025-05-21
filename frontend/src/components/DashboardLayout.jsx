@@ -13,7 +13,7 @@ const DashboardLayout = ({ children }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-indigo-900 flex">
       {/* Sidebar */}
-      <div className="w-64 bg-black/20 backdrop-blur-sm border-r border-white/10">
+      <div className="fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-black/20 backdrop-blur-sm border-r border-white/10 overflow-y-auto">
         <div className="p-4">
           <h2 className="text-xl font-semibold text-white mb-6">Dashboard</h2>
           <nav className="space-y-2">
@@ -45,7 +45,7 @@ const DashboardLayout = ({ children }) => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 ml-64">
         <div className="p-6">
           {children}
         </div>

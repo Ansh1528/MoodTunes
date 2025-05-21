@@ -52,7 +52,15 @@ EMOTION_CATEGORIES = {
         'empowered', 'strong', 'courageous', 'confident', 'hopeful',
         'optimistic', 'positive', 'energetic', 'vital', 'vigorous'
     ],
-    'Neutral 😐': ['neutral', 'indifferent', 'unemotional']
+    'Neutral 😐': ['neutral', 'indifferent', 'unemotional'],
+    'Nostalgic 🎭': [
+        'nostalgia', 'reminiscence', 'memories', 'recollection', 'remembrance',
+        'sentimental', 'yearning', 'longing', 'homesick', 'melancholy',
+        'wistful', 'reflective', 'contemplative', 'reminiscent', 'retrospective',
+        'old times', 'good old days', 'childhood memories', 'past times',
+        'throwback', 'blast from the past', 'memory lane', 'flashback',
+        'vintage', 'classic', 'traditional', 'old school', 'retro'
+    ]
 }
 
 # Emotion emoji mapping for individual emotions
@@ -143,7 +151,35 @@ EMOTION_EMOJIS = {
     'heartbroken': '💔',
     'broken heart': '💔',
     'heart ache': '💔',
-    'emotional pain': '💔'
+    'emotional pain': '💔',
+    'nostalgia': '🎭',
+    'reminiscence': '🎭',
+    'memories': '🎭',
+    'recollection': '🎭',
+    'remembrance': '🎭',
+    'sentimental': '🎭',
+    'yearning': '🎭',
+    'longing': '🎭',
+    'homesick': '🎭',
+    'melancholy': '🎭',
+    'wistful': '🎭',
+    'reflective': '🎭',
+    'contemplative': '🎭',
+    'reminiscent': '🎭',
+    'retrospective': '🎭',
+    'old times': '🎭',
+    'good old days': '🎭',
+    'childhood memories': '🎭',
+    'past times': '🎭',
+    'throwback': '🎭',
+    'blast from the past': '🎭',
+    'memory lane': '🎭',
+    'flashback': '🎭',
+    'vintage': '🎭',
+    'classic': '🎭',
+    'traditional': '🎭',
+    'old school': '🎭',
+    'retro': '🎭'
 }
 
 # Initialize the sentiment analysis pipeline with SamLowe model
@@ -180,6 +216,11 @@ def map_emotion_to_category(emotion):
         'sorrow': 'Sad 😢',
         'disappointment': 'Sad 😢',
         'loneliness': 'Sad 😢',
+        'heartbreak': 'Heartbroken 💔',
+        'heartbroken': 'Heartbroken 💔',
+        'broken heart': 'Heartbroken 💔',
+        'heart ache': 'Heartbroken 💔',
+        'emotional pain': 'Heartbroken 💔',
         'anger': 'Angry 😠',
         'annoyance': 'Angry 😠',
         'irritation': 'Angry 😠',
@@ -251,7 +292,22 @@ def map_emotion_to_category(emotion):
         'vigor': 'Motivated 💪',
         'neutral': 'Neutral 😐',
         'indifferent': 'Neutral 😐',
-        'unemotional': 'Neutral 😐'
+        'unemotional': 'Neutral 😐',
+        'nostalgia': 'Nostalgic 🎭',
+        'reminiscence': 'Nostalgic 🎭',
+        'memories': 'Nostalgic 🎭',
+        'recollection': 'Nostalgic 🎭',
+        'remembrance': 'Nostalgic 🎭',
+        'sentimental': 'Nostalgic 🎭',
+        'yearning': 'Nostalgic 🎭',
+        'longing': 'Nostalgic 🎭',
+        'homesick': 'Nostalgic 🎭',
+        'melancholy': 'Nostalgic 🎭',
+        'wistful': 'Nostalgic 🎭',
+        'reflective': 'Nostalgic 🎭',
+        'contemplative': 'Nostalgic 🎭',
+        'reminiscent': 'Nostalgic 🎭',
+        'retrospective': 'Nostalgic 🎭'
     }
     return emotion_mapping.get(emotion, 'Neutral 😐')
 
@@ -620,24 +676,41 @@ def detect_motivation(text):
     # Convert to lowercase for matching
     text_lower = text.lower()
     
-    # Define motivation patterns
+    # Define motivation patterns with weighted scores
     motivation_patterns = [
-        r'\b(determined|motivated|driven|committed|focused|passionate|dedicated|inspired)\b',
-        r'\b(going to|plan to|aim to|striving to|working to|trying to)\b',
-        r'\b(success|achieve|accomplish|reach|attain|succeed)\b',
-        r'\b(goal|target|objective|mission|purpose)\b',
-        r'\b(improve|grow|develop|progress|advance)\b',
-        r'\b(never give up|keep going|push through|stay strong)\b'
+        # Direct motivation words (weight: 0.4)
+        (r'\b(motivated|motivation|inspire|inspired|inspiration|determined|determination)\b', 0.4),
+        (r'\b(driven|ambitious|passionate|focused|dedicated|committed)\b', 0.4),
+        
+        # Action-oriented phrases (weight: 0.3)
+        (r'\b(going to|plan to|aim to|striving to|working to|trying to)\b', 0.3),
+        (r'\b(achieve|accomplish|reach|attain|succeed|succeeding)\b', 0.3),
+        
+        # Goal-related terms (weight: 0.3)
+        (r'\b(goal|target|objective|mission|purpose|vision)\b', 0.3),
+        (r'\b(dream|aspiration|ambition|drive|push|progress)\b', 0.3),
+        
+        # Growth and improvement (weight: 0.2)
+        (r'\b(improve|grow|develop|progress|advance|better)\b', 0.2),
+        (r'\b(learning|growing|developing|improving|advancing)\b', 0.2),
+        
+        # Positive mindset (weight: 0.2)
+        (r'\b(never give up|keep going|push through|stay strong)\b', 0.2),
+        (r'\b(believe|confidence|strength|courage|power)\b', 0.2)
     ]
     
     import re
     
-    # Check each pattern and calculate motivation score
+    # Check each pattern and calculate motivation score with weighted matches
     motivation_score = 0
-    for pattern in motivation_patterns:
+    for pattern, weight in motivation_patterns:
         matches = re.findall(pattern, text_lower)
         if matches:
-            motivation_score += len(matches) * 0.2
+            motivation_score += len(matches) * weight
+    
+    # Boost the score if multiple motivation indicators are present
+    if motivation_score > 0:
+        motivation_score *= 1.5
     
     return motivation_score
 
@@ -689,37 +762,41 @@ def detect_heartbreak(text):
     # Convert to lowercase for matching
     text_lower = text.lower()
     
-    # Define heartbreak patterns
+    # Define heartbreak patterns with increased weight for direct heartbreak terms
     heartbreak_patterns = [
-        # Direct heartbreak words
-        r'\b(heartbreak|heartbroken|heartbreaking|broken heart|heart ache|emotional pain)\b',
-        r'\b(heart hurts|heart aching|heart pain|heart sore)\b',
+        # Direct heartbreak words (weight: 0.4)
+        (r'\b(heartbreak|heartbroken|heartbreaking|broken heart|heart ache|emotional pain)\b', 0.4),
+        (r'\b(heart hurts|heart aching|heart pain|heart sore)\b', 0.4),
         
-        # Breakup related
-        r'\b(breakup|break up|broke up|breaking up|broken up)\b',
-        r'\b(separated|divorced|split|parted|ended)\b',
+        # Breakup related (weight: 0.3)
+        (r'\b(breakup|break up|broke up|breaking up|broken up)\b', 0.3),
+        (r'\b(separated|divorced|split|parted|ended)\b', 0.3),
         
-        # Emotional pain
-        r'\b(hurt|pain|ache|suffer|cry|tears|weep)\b',
-        r'\b(miss|longing|yearning|empty|void|alone)\b',
+        # Emotional pain (weight: 0.2)
+        (r'\b(hurt|pain|ache|suffer|cry|tears|weep)\b', 0.2),
+        (r'\b(miss|longing|yearning|empty|void|alone)\b', 0.2),
         
-        # Rejection
-        r'\b(rejected|dumped|left|abandoned|betrayed)\b',
-        r'\b(unwanted|unloved|unappreciated|taken for granted)\b',
+        # Rejection (weight: 0.3)
+        (r'\b(rejected|dumped|left|abandoned|betrayed)\b', 0.3),
+        (r'\b(unwanted|unloved|unappreciated|taken for granted)\b', 0.3),
         
-        # Healing
-        r'\b(moving on|getting over|healing|recovering|letting go)\b',
-        r'\b(accept|forgive|forget|move forward|start over)\b'
+        # Healing (weight: 0.2)
+        (r'\b(moving on|getting over|healing|recovering|letting go)\b', 0.2),
+        (r'\b(accept|forgive|forget|move forward|start over)\b', 0.2)
     ]
     
     import re
     
-    # Check each pattern and calculate heartbreak score
+    # Check each pattern and calculate heartbreak score with weighted matches
     heartbreak_score = 0
-    for pattern in heartbreak_patterns:
+    for pattern, weight in heartbreak_patterns:
         matches = re.findall(pattern, text_lower)
         if matches:
-            heartbreak_score += len(matches) * 0.2
+            heartbreak_score += len(matches) * weight
+    
+    # Boost the score if multiple heartbreak indicators are present
+    if heartbreak_score > 0:
+        heartbreak_score *= 1.5
     
     return heartbreak_score
 
@@ -754,7 +831,8 @@ def analyze_mood():
             grouped_emotions = group_emotions(results)
             
             # If motivation score is high enough, override the primary emotion
-            if motivation_score > 0.3:  # Threshold for motivation detection
+            # Lowered threshold to 0.2 for motivation detection
+            if motivation_score > 0.2:  # Threshold for motivation detection
                 grouped_emotions['primary_category'] = 'Motivated 💪'
                 # Add motivation to the categories if not present
                 if not any(cat['name'] == 'Motivated 💪' for cat in grouped_emotions['categories']):
@@ -765,6 +843,21 @@ def analyze_mood():
                             'emotion': 'motivation',
                             'emoji': '💪',
                             'score': round(motivation_score * 100, 2)
+                        }]
+                    })
+            
+            # If heartbreak score is high enough, override the primary emotion
+            if heartbreak_score > 0.2:  # Threshold for heartbreak detection
+                grouped_emotions['primary_category'] = 'Heartbroken 💔'
+                # Add heartbreak to the categories if not present
+                if not any(cat['name'] == 'Heartbroken 💔' for cat in grouped_emotions['categories']):
+                    grouped_emotions['categories'].append({
+                        'name': 'Heartbroken 💔',
+                        'score': round(heartbreak_score * 100, 2),
+                        'emotions': [{
+                            'emotion': 'heartbreak',
+                            'emoji': '💔',
+                            'score': round(heartbreak_score * 100, 2)
                         }]
                     })
             
@@ -780,21 +873,6 @@ def analyze_mood():
                             'emotion': 'love',
                             'emoji': '💝',
                             'score': round(love_score * 100, 2)
-                        }]
-                    })
-            
-            # If heartbreak score is high enough, override the primary emotion
-            if heartbreak_score > 0.3:  # Threshold for heartbreak detection
-                grouped_emotions['primary_category'] = 'Heartbroken 💔'
-                # Add heartbreak to the categories if not present
-                if not any(cat['name'] == 'Heartbroken 💔' for cat in grouped_emotions['categories']):
-                    grouped_emotions['categories'].append({
-                        'name': 'Heartbroken 💔',
-                        'score': round(heartbreak_score * 100, 2),
-                        'emotions': [{
-                            'emotion': 'heartbreak',
-                            'emoji': '💔',
-                            'score': round(heartbreak_score * 100, 2)
                         }]
                     })
             
@@ -814,7 +892,7 @@ def analyze_mood():
             }
             
             # If motivation was detected, add it to the emotions list
-            if motivation_score > 0.3:
+            if motivation_score > 0.2:  # Lowered threshold here as well
                 response['emotions'].append(f"motivation 💪")
             
             # If love was detected, add it to the emotions list
@@ -822,7 +900,7 @@ def analyze_mood():
                 response['emotions'].append(f"love 💝")
             
             # If heartbreak was detected, add it to the emotions list
-            if heartbreak_score > 0.3:
+            if heartbreak_score > 0.2:
                 response['emotions'].append(f"heartbreak 💔")
             
             logger.info(f"Analysis response: {json.dumps(response, indent=2)}")
