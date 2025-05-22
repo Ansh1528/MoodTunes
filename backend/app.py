@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from datetime import datetime
@@ -13,6 +13,12 @@ import os
 from dotenv import load_dotenv
 import json
 import logging
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from io import BytesIO
+from dateutil import parser
 
 # Load environment variables
 load_dotenv()
@@ -1082,6 +1088,112 @@ def get_music_feedback():
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+@app.route('/api/journal/export', methods=['GET'])
+@jwt_required()
+def export_journal_pdf():
+    try:
+        current_user_id = get_jwt_identity()
+        if not current_user_id:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid or expired token'
+            }), 401
+
+        # Get user's journal entries
+        entries = JournalEntry.objects(user_id=current_user_id).order_by('-created_at')
+        
+        # Create a BytesIO buffer to store the PDF
+        buffer = BytesIO()
+        
+        # Create the PDF document
+        doc = SimpleDocTemplate(buffer, pagesize=letter)
+        styles = getSampleStyleSheet()
+        
+        # Create custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=24,
+            spaceAfter=30,
+            textColor=colors.purple
+        )
+        
+        date_style = ParagraphStyle(
+            'CustomDate',
+            parent=styles['Normal'],
+            fontSize=12,
+            textColor=colors.gray
+        )
+        
+        content_style = ParagraphStyle(
+            'CustomContent',
+            parent=styles['Normal'],
+            fontSize=12,
+            spaceAfter=20
+        )
+        
+        mood_style = ParagraphStyle(
+            'CustomMood',
+            parent=styles['Normal'],
+            fontSize=12,
+            textColor=colors.purple,
+            spaceAfter=10
+        )
+        
+        # Build the PDF content
+        story = []
+        
+        # Add title
+        story.append(Paragraph("Mood Journal Report", title_style))
+        story.append(Spacer(1, 20))
+        
+        # Add entries
+        for entry in entries:
+            # Add date
+            date_str = entry.created_at.strftime("%B %d, %Y at %I:%M %p")
+            story.append(Paragraph(date_str, date_style))
+            story.append(Spacer(1, 10))
+            
+            # Add content
+            story.append(Paragraph(entry.content, content_style))
+            
+            # Add mood information if available
+            mood_data = entry.get_mood()
+            if mood_data:
+                mood_text = f"Mood: {mood_data['primary_mood']} (Confidence: {mood_data['confidence']}%)"
+                story.append(Paragraph(mood_text, mood_style))
+                
+                if mood_data.get('emotions'):
+                    emotions_text = "Detected Emotions: " + ", ".join(mood_data['emotions'])
+                    story.append(Paragraph(emotions_text, mood_style))
+            
+            story.append(Spacer(1, 30))
+        
+        # Build the PDF
+        doc.build(story)
+        
+        # Reset buffer position
+        buffer.seek(0)
+        
+        # Generate filename with current date
+        filename = f"mood-journal-{datetime.now().strftime('%Y-%m-%d')}.pdf"
+        
+        # Return the PDF file
+        return send_file(
+            buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+        
+    except Exception as e:
+        print(f"Error generating PDF: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to generate PDF report',
+            'details': str(e)
         }), 500
 
 # Error handling middleware
