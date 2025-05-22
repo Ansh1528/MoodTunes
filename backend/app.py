@@ -800,6 +800,53 @@ def detect_heartbreak(text):
     
     return heartbreak_score
 
+def detect_calm(text):
+    """Directly detect calm and relaxed states"""
+    # Convert to lowercase for matching
+    text_lower = text.lower()
+    
+    # Define calm patterns with weighted scores
+    calm_patterns = [
+        # Direct calm words (weight: 0.4)
+        (r'\b(calm|relaxed|peaceful|serene|tranquil|zen)\b', 0.4),
+        (r'\b(peace|quiet|still|gentle|soft|mellow)\b', 0.4),
+        
+        # Relaxation activities (weight: 0.3)
+        (r'\b(meditate|meditation|yoga|breathing|breath|mindful)\b', 0.3),
+        (r'\b(rest|resting|relax|relaxing|unwind|unwinding)\b', 0.3),
+        
+        # Nature-related calm (weight: 0.3)
+        (r'\b(nature|forest|ocean|waves|breeze|wind)\b', 0.3),
+        (r'\b(sunset|sunrise|stars|moon|night|dawn)\b', 0.3),
+        
+        # Physical relaxation (weight: 0.2)
+        (r'\b(sleep|sleeping|nap|napping|rest|resting)\b', 0.2),
+        (r'\b(comfort|comfortable|cozy|warm|soft|gentle)\b', 0.2),
+        
+        # Mental state (weight: 0.3)
+        (r'\b(clear|clear mind|focused|centered|balanced)\b', 0.3),
+        (r'\b(relief|relieved|ease|eased|soothe|soothed)\b', 0.3),
+        
+        # Time-related calm (weight: 0.2)
+        (r'\b(morning|evening|night|dawn|dusk|twilight)\b', 0.2),
+        (r'\b(weekend|holiday|vacation|break|pause|moment)\b', 0.2)
+    ]
+    
+    import re
+    
+    # Check each pattern and calculate calm score with weighted matches
+    calm_score = 0
+    for pattern, weight in calm_patterns:
+        matches = re.findall(pattern, text_lower)
+        if matches:
+            calm_score += len(matches) * weight
+    
+    # Boost the score if multiple calm indicators are present
+    if calm_score > 0:
+        calm_score *= 1.5
+    
+    return calm_score
+
 @app.route('/api/analyze-mood', methods=['POST'])
 def analyze_mood():
     try:
@@ -823,6 +870,10 @@ def analyze_mood():
             heartbreak_score = detect_heartbreak(text)
             logger.info(f"Heartbreak score: {heartbreak_score}")
             
+            # Check for calm using pattern matching
+            calm_score = detect_calm(text)
+            logger.info(f"Calm score: {calm_score}")
+            
             # Get emotion analysis from the model
             results = emotion_analyzer(text)[0]
             logger.info(f"Model emotion results: {results}")
@@ -830,9 +881,23 @@ def analyze_mood():
             # Group emotions into categories
             grouped_emotions = group_emotions(results)
             
+            # If calm score is high enough, override the primary emotion
+            if calm_score > 0.2:  # Threshold for calm detection
+                grouped_emotions['primary_category'] = 'Calm 😌'
+                # Add calm to the categories if not present
+                if not any(cat['name'] == 'Calm 😌' for cat in grouped_emotions['categories']):
+                    grouped_emotions['categories'].append({
+                        'name': 'Calm 😌',
+                        'score': round(calm_score * 100, 2),
+                        'emotions': [{
+                            'emotion': 'calm',
+                            'emoji': '😌',
+                            'score': round(calm_score * 100, 2)
+                        }]
+                    })
+            
             # If motivation score is high enough, override the primary emotion
-            # Lowered threshold to 0.2 for motivation detection
-            if motivation_score > 0.2:  # Threshold for motivation detection
+            if motivation_score > 0.2:
                 grouped_emotions['primary_category'] = 'Motivated 💪'
                 # Add motivation to the categories if not present
                 if not any(cat['name'] == 'Motivated 💪' for cat in grouped_emotions['categories']):
@@ -847,7 +912,7 @@ def analyze_mood():
                     })
             
             # If heartbreak score is high enough, override the primary emotion
-            if heartbreak_score > 0.2:  # Threshold for heartbreak detection
+            if heartbreak_score > 0.2:
                 grouped_emotions['primary_category'] = 'Heartbroken 💔'
                 # Add heartbreak to the categories if not present
                 if not any(cat['name'] == 'Heartbroken 💔' for cat in grouped_emotions['categories']):
@@ -862,7 +927,7 @@ def analyze_mood():
                     })
             
             # If love score is high enough, override the primary emotion
-            if love_score > 0.3:  # Threshold for love detection
+            if love_score > 0.3:
                 grouped_emotions['primary_category'] = 'Loving 💝'
                 # Add love to the categories if not present
                 if not any(cat['name'] == 'Loving 💝' for cat in grouped_emotions['categories']):
@@ -891,8 +956,12 @@ def analyze_mood():
                 'emotion_groups': grouped_emotions
             }
             
+            # If calm was detected, add it to the emotions list
+            if calm_score > 0.2:
+                response['emotions'].append(f"calm 😌")
+            
             # If motivation was detected, add it to the emotions list
-            if motivation_score > 0.2:  # Lowered threshold here as well
+            if motivation_score > 0.2:
                 response['emotions'].append(f"motivation 💪")
             
             # If love was detected, add it to the emotions list

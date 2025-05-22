@@ -4,7 +4,7 @@ import DocLayout from '../components/DocLayout';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FaMusic, FaTimes } from 'react-icons/fa';
+import { FaMusic, FaTimes, FaSpotify } from 'react-icons/fa';
 import MoodPlaylists from '../components/MoodPlaylists';
 
 const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -54,20 +54,13 @@ const MusicFeedbackForm = ({ isOpen, onClose, onSubmit, currentMood }) => {
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          initial={{ x: '100%' }}
-          animate={{ x: 0 }}
-          exit={{ x: '100%' }}
+          initial={{ y: '-100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '-100%' }}
           transition={{ type: 'spring', damping: 20 }}
-          className="fixed right-0 top-0 h-screen w-96 bg-white/10 backdrop-blur-md border-l border-white/20 shadow-xl z-50"
-          style={{ 
-            position: 'fixed',
-            top: 0,
-            right: 0,
-            bottom: 0,
-            overflow: 'hidden'
-          }}
+          className="fixed top-0 left-0 right-0 bg-white/10 backdrop-blur-md border-b border-white/20 shadow-xl z-50"
         >
-          <div className="h-full flex flex-col">
+          <div className="max-w-4xl mx-auto">
             <div 
               className="flex items-center justify-between p-6 bg-white/10 backdrop-blur-md border-b border-white/10"
               style={{ position: 'sticky', top: 0, zIndex: 20 }}
@@ -84,53 +77,79 @@ const MusicFeedbackForm = ({ isOpen, onClose, onSubmit, currentMood }) => {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
-              <form onSubmit={handleSubmit} className="h-full flex flex-col p-6">
-                <div className="space-y-6 flex-1">
-                  <div>
-                    <label className="block text-white/80 mb-3">How's your mood now?</label>
-                    <div className="flex gap-2">
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
-                        <button
-                          key={value}
-                          type="button"
-                          onClick={() => setMoodScore(value)}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                            moodScore === value
-                              ? 'bg-purple-500 text-white'
-                              : 'bg-white/10 text-white/60 hover:bg-white/20'
-                          }`}
-                        >
-                          {value}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex-1">
-                    <label className="block text-white/80 mb-3">How did the music affect you?</label>
-                    <textarea
-                      value={feedback}
-                      onChange={(e) => setFeedback(e.target.value)}
-                      className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-3 text-white placeholder-white/40 focus:outline-none focus:border-purple-500 resize-none"
-                      placeholder="Share your thoughts about the music..."
-                    />
+            <div className="p-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-white/80 mb-3">How's your mood now?</label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setMoodScore(value)}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                          moodScore === value
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-white/10 text-white/60 hover:bg-white/20'
+                        }`}
+                      >
+                        {value}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div 
-                  className="pt-6 border-t border-white/10 mt-6"
-                  style={{ position: 'sticky', bottom: 0, zIndex: 20 }}
-                >
+                <div>
+                  <label className="block text-white/80 mb-3">How did the music affect you?</label>
+                  <textarea
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-3 text-white placeholder-white/40 focus:outline-none focus:border-purple-500 resize-none"
+                    placeholder="Share your thoughts about the music..."
+                  />
+                </div>
+
+                <div className="flex justify-end">
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors"
+                    className="px-6 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-600 transition-colors"
                   >
                     Submit Feedback
                   </button>
                 </div>
               </form>
             </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+};
+
+const NotificationPopup = ({ isVisible, onClose }) => {
+  return (
+    <AnimatePresence>
+      {isVisible && (
+        <motion.div
+          initial={{ x: '100%', opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          exit={{ x: '100%', opacity: 0 }}
+          transition={{ type: 'spring', damping: 20 }}
+          className="fixed right-4 top-4 bg-gray-700 backdrop-blur-md border border-white/20 rounded-lg p-4 shadow-xl z-50 max-w-sm"
+        >
+          <div className="flex items-start gap-3">
+            <FaSpotify className="text-green-500 text-xl mt-1" />
+            <div className="flex-1">
+              <p className="text-white text-sm">
+                This is only the preview of the Playlists. To listen to full tracks, click on LISTEN ON SPOTIFY.
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <FaTimes />
+            </button>
           </div>
         </motion.div>
       )}
@@ -148,11 +167,14 @@ function Journal() {
   const [error, setError] = useState('');
   const [dontSaveEntry, setDontSaveEntry] = useState(false);
   const [showPlaylist, setShowPlaylist] = useState(false);
+  const [playlistType, setPlaylistType] = useState('match');
   const moodAnalysisRef = useRef(null);
   const playlistRef = useRef(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackTimer, setFeedbackTimer] = useState(null);
   const [currentPlaylist, setCurrentPlaylist] = useState(null);
+  const [showNotification, setShowNotification] = useState(false);
+  const [hasShownNotification, setHasShownNotification] = useState(false);
 
   // Check authentication on component mount
   useEffect(() => {
@@ -398,14 +420,41 @@ function Journal() {
     setError(''); // Clear any existing errors when user types
   };
 
+  const handleKeyDown = (e) => {
+    // If Enter is pressed without Shift key and there's text to analyze
+    if (e.key === 'Enter' && !e.shiftKey && entry.trim()) {
+      e.preventDefault(); // Prevent default new line
+      analyzeMood();
+    }
+  };
+
   const handleMoodAction = (action) => {
     setShowPlaylist(true);
+    setPlaylistType(action);
+    
+    // Show notification if it hasn't been shown before
+    if (!hasShownNotification) {
+      setShowNotification(true);
+      setHasShownNotification(true);
+      
+      // Hide notification after 7 seconds
+      setTimeout(() => {
+        setShowNotification(false);
+      }, 7000);
+    }
+
+    // Clear any existing feedback timer
+    if (feedbackTimer) {
+      clearTimeout(feedbackTimer);
+    }
+
     // Start the feedback timer when playlist is opened
     const timer = setTimeout(() => {
       setShowFeedback(true);
     }, 60000); // 1 minute
     setFeedbackTimer(timer);
     setCurrentPlaylist(action);
+    
     // Scroll to playlist after a short delay
     setTimeout(() => {
       playlistRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -448,6 +497,20 @@ function Journal() {
     }
   };
 
+  // Add a new function to handle Spotify link clicks
+  const handleSpotifyClick = () => {
+    // Clear any existing feedback timer
+    if (feedbackTimer) {
+      clearTimeout(feedbackTimer);
+    }
+
+    // Start a new feedback timer
+    const timer = setTimeout(() => {
+      setShowFeedback(true);
+    }, 60000); // 1 minute
+    setFeedbackTimer(timer);
+  };
+
   // Cleanup timer on unmount
   useEffect(() => {
     return () => {
@@ -481,7 +544,8 @@ function Journal() {
                 rows="4"
                 value={entry}
                 onChange={handleEntryChange}
-                placeholder="How are you feeling today?"
+                onKeyDown={handleKeyDown}
+                placeholder="How are you feeling today? (Press Enter to analyze mood)"
                 className="w-full bg-black/20 border border-white/10 rounded-lg p-4 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
             </div>
@@ -611,28 +675,42 @@ function Journal() {
                 <div className="space-y-3 pt-4 border-t border-white/10">
                   <p className="text-white/60 text-sm">Mood Actions</p>
                   <div className="flex flex-wrap gap-3">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleMoodAction('match')}
-                      className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                      Match My Mood
-                    </motion.button>
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => handleMoodAction('uplift')}
-                      className="px-4 py-2 bg-gradient-to-r from-blue-500/20 to-purple-500/20 hover:from-blue-500/30 hover:to-purple-500/30 rounded-lg text-white text-sm transition-colors flex items-center gap-2"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
-                      </svg>
-                      Uplift My Mood
-                    </motion.button>
+                    {!['fearful', 'disgusted'].includes(moodResult?.primary_mood?.toLowerCase().split(' ')[0]) && (
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleMoodAction('match')}
+                        className={`px-4 py-2 ${
+                          playlistType === 'match'
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-white/10 hover:bg-white/20 text-white'
+                        } rounded-lg text-sm transition-colors flex items-center gap-2`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                        Match My Mood
+                      </motion.button>
+                    )}
+                    {!['happy', 'calm', 'excited', 'energetic', 'motivated', 'joy', 'peaceful', 'serene', 'tranquil', 'relaxed'].includes(moodResult?.primary_mood?.toLowerCase().split(' ')[0]) && (
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleMoodAction('uplift')}
+                        className={`px-4 py-2 ${
+                          playlistType === 'uplift'
+                            ? 'bg-green-500 text-white'
+                            : ['sad', 'heartbroken'].includes(moodResult?.primary_mood?.toLowerCase().split(' ')[0])
+                              ? 'bg-gradient-to-r from-green-500/20 to-green-500/40 hover:from-green-500/30 hover:to-green-500/50 text-white'
+                              : 'bg-gradient-to-r from-blue-500/20 to-purple-500/20 hover:from-blue-500/30 hover:to-purple-500/30 text-white'
+                        } rounded-lg text-sm transition-colors flex items-center gap-2`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                        {['sad', 'heartbroken'].includes(moodResult?.primary_mood?.toLowerCase().split(' ')[0]) ? 'Uplift My Mood (Recommended)' : 'Uplift My Mood'}
+                      </motion.button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -645,12 +723,22 @@ function Journal() {
                 ref={playlistRef}
                 className={`bg-gradient-to-br ${getMoodGradient(moodResult?.primary_mood || 'calm')} backdrop-blur-sm rounded-xl p-6 border border-white/10 shadow-lg`}
               >
-                <MoodPlaylists currentMood={moodResult?.primary_mood} />
+                <MoodPlaylists 
+                  currentMood={moodResult?.primary_mood} 
+                  playlistType={playlistType}
+                  onPlaylistTypeChange={setPlaylistType}
+                  onSpotifyClick={handleSpotifyClick}
+                />
               </motion.div>
             )}
           </div>
         )}
       </div>
+
+      <NotificationPopup 
+        isVisible={showNotification} 
+        onClose={() => setShowNotification(false)} 
+      />
 
       <MusicFeedbackForm
         isOpen={showFeedback}
