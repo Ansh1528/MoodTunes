@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { FaCalendar, FaChartLine, FaClock, FaChevronLeft, FaChevronRight, FaChartBar, FaFilter, FaDownload, FaMusic } from 'react-icons/fa';
+import { FaCalendar, FaChartLine, FaClock, FaChevronLeft, FaChevronRight, FaChartBar, FaFilter, FaDownload, FaMusic, FaTimes } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -108,6 +108,9 @@ const History = () => {
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [showGraph, setShowGraph] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [moodFilter, setMoodFilter] = useState('');
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -217,6 +220,73 @@ const History = () => {
     setCurrentPage(prev => Math.max(prev - 1, 0));
   };
 
+  const handleDownload = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
+        navigate('/login');
+        return;
+      }
+
+      // Show loading state
+      setLoading(true);
+
+      const response = await axios.get(`${BACKEND_URL}/api/journal/export`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        responseType: 'blob'
+      });
+
+      // Create a blob from the response data
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `mood-journal-${new Date().toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      // Hide loading state
+      setLoading(false);
+    } catch (err) {
+      console.error('Error downloading report:', err);
+      setError('Failed to download report. Please try again.');
+      setLoading(false);
+    }
+  };
+
+  const applyFilters = (data) => {
+    let filteredData = [...data];
+
+    // Apply date range filter
+    if (dateRange.start && dateRange.end) {
+      filteredData = filteredData.filter(entry => {
+        const entryDate = new Date(entry.created_at);
+        return entryDate >= new Date(dateRange.start) && entryDate <= new Date(dateRange.end);
+      });
+    }
+
+    // Apply mood filter
+    if (moodFilter) {
+      filteredData = filteredData.filter(entry => 
+        entry.mood?.primary_mood?.toLowerCase().includes(moodFilter.toLowerCase())
+      );
+    }
+
+    return filteredData;
+  };
+
+  const clearFilters = () => {
+    setDateRange({ start: '', end: '' });
+    setMoodFilter('');
+    setShowFilter(false);
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -305,16 +375,71 @@ const History = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm transition-all flex items-center gap-2 hover:shadow-lg hover:shadow-purple-500/20">
+          <button 
+            onClick={() => setShowFilter(!showFilter)}
+            className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm transition-all flex items-center gap-2 hover:shadow-lg hover:shadow-purple-500/20"
+          >
             <FaFilter />
             Filter
           </button>
-          <button className="px-4 py-2 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm transition-all flex items-center gap-2 hover:shadow-lg hover:shadow-purple-500/20">
+          <button 
+            onClick={handleDownload}
+            className="px-4 py-2 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm transition-all flex items-center gap-2 hover:shadow-lg hover:shadow-purple-500/20"
+          >
             <FaDownload />
             Download Report
           </button>
         </div>
       </div>
+
+      {/* Filter Panel */}
+      {showFilter && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="p-4 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 mb-6"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-semibold text-white">Filter Entries</h3>
+            <button
+              onClick={clearFilters}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <FaTimes className="text-white/60" />
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-white/60 mb-2">Date Range</label>
+              <div className="flex gap-2">
+                <input
+                  type="date"
+                  value={dateRange.start}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white w-full"
+                />
+                <input
+                  type="date"
+                  value={dateRange.end}
+                  onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white w-full"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm text-white/60 mb-2">Mood Filter</label>
+              <input
+                type="text"
+                value={moodFilter}
+                onChange={(e) => setMoodFilter(e.target.value)}
+                placeholder="Filter by mood..."
+                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white w-full"
+              />
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Graph Toggle Button */}
       {entries.length > 0 && (
@@ -482,7 +607,7 @@ const History = () => {
             <p className="text-gray-500 mt-2">Your journal entries will appear here once you create some.</p>
           </div>
         ) : (
-          entries.map((entry) => (
+          applyFilters(entries).map((entry) => (
             <motion.div
               key={entry.id}
               initial={{ opacity: 0, y: 20 }}

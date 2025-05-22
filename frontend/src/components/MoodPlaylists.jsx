@@ -8,7 +8,7 @@ const moodColors = {
     container: 'bg-yellow-50',
     bg: 'bg-yellow-100',
     hover: 'hover:bg-yellow-200',
-    button: 'bg-yellow-500 hover:bg-yellow-600'
+    button: 'bg-orange-400 hover:bg-orange-500'
   },
   Sad: {
     container: 'bg-blue-50',
@@ -195,7 +195,7 @@ const MoodPlaylists = ({ currentMood, playlistType: externalPlaylistType, onPlay
   };
 
   return (
-    <div className={`${colors.container} rounded-lg shadow-lg transition-all bg-transparent duration-300`}>
+    <div className={` rounded-lg shadow-lg transition-all bg-transparent duration-300 p-2`}>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-100">Music for Your Mood</h2>
         <div className="flex space-x-2">
@@ -234,11 +234,11 @@ const MoodPlaylists = ({ currentMood, playlistType: externalPlaylistType, onPlay
         {playlists.map((playlist, index) => (
           <div
             key={index}
-            className={`relative rounded-lg pt-2 px-4 transition-all duration-300 bg-gray-500 bg-opacity-30`}
+            className={`relative rounded-lg p-4 transition-all duration-300 bg-gray-500 bg-opacity-30`}
             onMouseEnter={() => setHoveredPlaylist(index)}
             onMouseLeave={() => setHoveredPlaylist(null)}
           >
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-100">
                 {playlist.name || `${externalPlaylistType === 'match' ? 'Matching' : 'Uplifting'} Playlist ${index + 1}`}
               </h3>

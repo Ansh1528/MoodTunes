@@ -35,7 +35,7 @@ const DocLayout = ({
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className={`text-lg text-blue-100 mb-8 max-w-2xl mx-auto ${descriptionClassName}`}
+                className={`text-xl text-blue-100 mb-8 max-w-2xl mx-auto ${descriptionClassName}`}
               >
                 {description}
               </motion.p>

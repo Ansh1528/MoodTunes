@@ -45,7 +45,7 @@ const MusicFeedbackForm = ({ isOpen, onClose, onSubmit, currentMood }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault(); // Prevent form from refreshing
-    if (moodScore && feedback.trim()) {
+    if (moodScore) { // Only require moodScore, feedback is optional
       onSubmit({ moodScore, feedback });
       setMoodScore(5);
       setFeedback('');
@@ -103,13 +103,12 @@ const MusicFeedbackForm = ({ isOpen, onClose, onSubmit, currentMood }) => {
                 </div>
 
                 <div>
-                  <label className="block text-white/80 mb-2">How did the music affect you?</label>
+                  <label className="block text-white/80 mb-2">How did the music affect you? (Optional)</label>
                   <textarea
                     value={feedback}
                     onChange={(e) => setFeedback(e.target.value)}
                     className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-3 text-white placeholder-white/40 focus:outline-none focus:border-purple-500 resize-none"
                     placeholder="Share your thoughts about the music..."
-                    required
                   />
                 </div>
 
@@ -601,7 +600,7 @@ function Journal() {
             )}
 
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <p className="text-sm text-gray-400">
+              <p className="text-m text-gray-400">
                 Express your thoughts and feelings freely...
               </p>
               <div className="flex gap-4">
@@ -686,7 +685,7 @@ function Journal() {
 
                 {/* Mood action buttons */}
                 <div className="space-y-3 pt-4 border-t border-white/10">
-                  <p className="text-white/60 text-sm">Mood Actions</p>
+                  <p className="text-white font-bold text-m">Find the Perfect Music for YOU</p>
                   <div className="flex flex-wrap gap-3">
                     {!['fearful', 'disgusted'].includes(moodResult?.primary_mood?.toLowerCase().split(' ')[0]) && (
                       <motion.button
