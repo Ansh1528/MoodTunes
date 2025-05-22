@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { FaCalendar, FaChartLine, FaClock, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaCalendar, FaChartLine, FaClock, FaChevronLeft, FaChevronRight, FaChartBar, FaFilter, FaDownload, FaMusic } from 'react-icons/fa';
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -66,17 +66,24 @@ const CustomTooltip = ({ active, payload, label }) => {
     return (
       <div className="bg-black/90 p-3 rounded-lg border border-white/10 shadow-lg">
         <p className="text-white font-medium">{data.formattedDate}</p>
-        <p className="text-purple-300">Mood: {data.primary_mood}</p>
-        <p className="text-blue-300">Mood Score: {data.mood_score}/10</p>
+        {data.mood_score !== null && (
+          <>
+            <p className="text-purple-300">Mood: {data.primary_mood}</p>
+            <p className="text-blue-300">Mood Score: {data.mood_score}/10</p>
+          </>
+        )}
+        {data.feedback_score !== null && (
+          <p className="text-green-300">Feedback Score: {data.feedback_score}/10</p>
+        )}
       </div>
     );
   }
   return null;
 };
 
-// Custom dot component for mood emojis
+// Add back the CustomDot component for mood emojis
 const CustomDot = ({ cx, cy, payload }) => {
-  if (!cx || !cy) return null;
+  if (!cx || !cy || !payload.primary_mood) return null;
 
   const emoji = payload.primary_mood.split(' ')[1] || '😐';
   
@@ -96,9 +103,11 @@ const CustomDot = ({ cx, cy, payload }) => {
 
 const History = () => {
   const [entries, setEntries] = useState([]);
+  const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
+  const [showGraph, setShowGraph] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -137,39 +146,42 @@ const History = () => {
       new Date(a.created_at) - new Date(b.created_at)
     );
 
+    // Sort feedback by date
+    const sortedFeedback = [...feedback].sort((a, b) => 
+      new Date(a.created_at) - new Date(b.created_at)
+    );
+
+    // Create a map of all timestamps
+    const allTimestamps = new Set([
+      ...sortedEntries.map(e => e.created_at),
+      ...sortedFeedback.map(f => f.created_at)
+    ]);
+
+    // Create data points for all timestamps
+    const chartData = Array.from(allTimestamps).map(timestamp => {
+      const entry = sortedEntries.find(e => e.created_at === timestamp);
+      const feedbackEntry = sortedFeedback.find(f => f.created_at === timestamp);
+
+      return {
+        timestamp,
+        formattedDate: dayjs(timestamp).format('MMM D, h:mm A'),
+        mood_score: entry ? getMoodScore(entry) : null,
+        feedback_score: feedbackEntry ? feedbackEntry.mood_score : null,
+        primary_mood: entry?.mood?.primary_mood || null
+      };
+    }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
     console.log('Total entries:', sortedEntries.length);
+    console.log('Total feedback:', sortedFeedback.length);
+    console.log('Combined data points:', chartData.length);
 
     // Calculate start and end indices for current page
-    const entriesPerPage = 7;
-    const startIndex = Math.max(0, sortedEntries.length - (currentPage + 1) * entriesPerPage);
-    const endIndex = Math.max(0, sortedEntries.length - currentPage * entriesPerPage);
+    const entriesPerPage = 10;
+    const startIndex = Math.max(0, chartData.length - (currentPage + 1) * entriesPerPage);
+    const endIndex = Math.max(0, chartData.length - currentPage * entriesPerPage);
     
     // Get entries for current page
-    const pageEntries = sortedEntries.slice(startIndex, endIndex);
-
-    console.log('Current page entries:', {
-      page: currentPage,
-      startIndex,
-      endIndex,
-      entriesCount: pageEntries.length
-    });
-
-    const chartData = pageEntries.map(entry => {
-      const moodScore = getMoodScore(entry);
-      
-      const dataPoint = {
-        timestamp: entry.created_at,
-        mood_score: moodScore,
-        formattedDate: dayjs(entry.created_at).format('MMM D, h:mm A'),
-        primary_mood: entry.mood?.primary_mood || 'Neutral 😐'
-      };
-
-      console.log('Created data point:', dataPoint);
-      return dataPoint;
-    });
-
-    console.log('Final chart data:', chartData);
-    return chartData;
+    return chartData.slice(startIndex, endIndex);
   };
 
   const getMoodSummary = (data) => {
@@ -198,7 +210,7 @@ const History = () => {
   };
 
   const handlePreviousPage = () => {
-    setCurrentPage(prev => Math.min(prev + 1, Math.ceil(entries.length / 7) - 1));
+    setCurrentPage(prev => Math.min(prev + 1, Math.ceil((entries.length + feedback.length) / 10) - 1));
   };
 
   const handleNextPage = () => {
@@ -206,7 +218,7 @@ const History = () => {
   };
 
   useEffect(() => {
-    const fetchEntries = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
         if (!token) {
@@ -215,37 +227,38 @@ const History = () => {
           return;
         }
 
-        console.log('Fetching entries...'); // Debug log
-        const response = await axios.get(`${BACKEND_URL}/api/journal`, {
+        // Fetch journal entries
+        const entriesResponse = await axios.get(`${BACKEND_URL}/api/journal`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
 
-        console.log('API Response:', response.data); // Debug log
+        // Fetch feedback data
+        const feedbackResponse = await axios.get(`${BACKEND_URL}/api/music-feedback`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-        if (response.data?.success && Array.isArray(response.data.entries)) {
-          // Add default user feedback score if not present
-          const entriesWithFeedback = response.data.entries.map(entry => ({
-            ...entry,
-            user_feedback_score: entry.user_feedback_score || 5 // Default score of 5 if not present
-          }));
-          
-          console.log('Processed entries:', entriesWithFeedback); // Debug log
-          setEntries(entriesWithFeedback);
-          setError('');
-        } else {
-          console.error('Invalid response format:', response.data); // Debug log
-          throw new Error(response.data?.error || 'Invalid response format from server');
+        if (entriesResponse.data?.success && Array.isArray(entriesResponse.data.entries)) {
+          setEntries(entriesResponse.data.entries);
         }
+
+        if (feedbackResponse.data?.success && Array.isArray(feedbackResponse.data.feedback)) {
+          setFeedback(feedbackResponse.data.feedback);
+        }
+
+        setError('');
       } catch (err) {
-        console.error('Error fetching entries:', err); // Debug log
+        console.error('Error fetching data:', err);
         if (err.response?.status === 401) {
           setError('Session expired. Please log in again.');
           navigate('/login');
         } else {
-          setError(err.response?.data?.error || err.message || 'Failed to fetch journal entries.');
+          setError(err.response?.data?.error || err.message || 'Failed to fetch data.');
         }
       } finally {
         setLoading(false);
@@ -253,9 +266,9 @@ const History = () => {
     };
 
     if (user) {
-      fetchEntries();
+      fetchData();
     } else {
-      setError('Please log in to view your journal entries.');
+      setError('Please log in to view your history.');
       navigate('/login');
     }
   }, [user, navigate]);
@@ -276,111 +289,157 @@ const History = () => {
     );
   }
 
+  const chartData = prepareChartData();
+  const moodSummary = getMoodSummary(chartData);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Mood & Journal History</h1>
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-purple-500/20 rounded-xl">
+            <FaCalendar className="text-2xl text-purple-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white">Mood & Journal History</h1>
+            <p className="text-sm text-gray-400 mt-1">Track your emotional journey over time</p>
+          </div>
+        </div>
         <div className="flex gap-2">
-          <button className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm transition-colors">
+          <button className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm transition-all flex items-center gap-2 hover:shadow-lg hover:shadow-purple-500/20">
+            <FaFilter />
             Filter
           </button>
-          <button className="px-4 py-2 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm transition-colors">
+          <button className="px-4 py-2 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm transition-all flex items-center gap-2 hover:shadow-lg hover:shadow-purple-500/20">
+            <FaDownload />
             Download Report
           </button>
         </div>
       </div>
 
+      {/* Graph Toggle Button */}
+      {entries.length > 0 && (
+        <div className="flex justify-start">
+          <button 
+            onClick={() => setShowGraph(!showGraph)}
+            className="px-6 py-3 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm transition-colors flex items-center gap-2 shadow-lg hover:shadow-purple-500/20"
+          >
+            <FaChartBar className="text-lg" />
+            {showGraph ? 'Hide Mood Graph' : 'Show Mood Graph'}
+          </button>
+        </div>
+      )}
+
       {/* Mood Overview Chart */}
-      <div className="p-8 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <h2 className="text-xl font-semibold text-white">Mood Overview</h2>
-            <span className="text-sm text-white/60">
-              Showing {prepareChartData().length} of {entries.length} entries
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePreviousPage}
-              disabled={currentPage >= Math.ceil(entries.length / 7) - 1}
-              className={`p-2 rounded-lg transition-colors ${
-                currentPage >= Math.ceil(entries.length / 7) - 1
-                  ? 'bg-white/5 text-white/30 cursor-not-allowed'
-                  : 'bg-white/5 hover:bg-white/10 text-white'
-              }`}
-            >
-              <FaChevronLeft />
-            </button>
-            <span className="text-sm text-white/60">
-              Page {currentPage + 1} of {Math.ceil(entries.length / 7)}
-            </span>
-            <button
-              onClick={handleNextPage}
-              disabled={currentPage === 0}
-              className={`p-2 rounded-lg transition-colors ${
-                currentPage === 0
-                  ? 'bg-white/5 text-white/30 cursor-not-allowed'
-                  : 'bg-white/5 hover:bg-white/10 text-white'
-              }`}
-            >
-              <FaChevronRight />
-            </button>
-          </div>
-        </div>
-        <div className="h-[500px]">
-          {entries.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={prepareChartData()}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                  <XAxis
-                    dataKey="formattedDate"
-                    stroke="rgba(255,255,255,0.7)"
-                    tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 12 }}
-                    tickLine={{ stroke: 'rgba(255,255,255,0.7)' }}
-                    axisLine={{ stroke: 'rgba(255,255,255,0.7)' }}
-                    interval={0}
-                    angle={-45}
-                    textAnchor="end"
-                    height={100}
-                    padding={{ left: 20, right: 20 }}
-                  />
-                  <YAxis
-                    domain={[0, 10]}
-                    stroke="rgba(255,255,255,0.7)"
-                    tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 12 }}
-                    tickLine={{ stroke: 'rgba(255,255,255,0.7)' }}
-                    axisLine={{ stroke: 'rgba(255,255,255,0.7)' }}
-                    ticks={[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
-                    padding={{ top: 20, bottom: 20 }}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="mood_score"
-                    stroke="#9333ea"
-                    strokeWidth={2}
-                    dot={<CustomDot />}
-                    activeDot={<CustomDot />}
-                    name="Mood Score"
-                    connectNulls={true}
-                    isAnimationActive={true}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </>
-          ) : (
-            <div className="h-full flex items-center justify-center text-gray-400">
-              <FaChartLine className="text-5xl" />
-              <span className="ml-2 text-lg">No data available for chart</span>
+      {showGraph && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          transition={{ duration: 0.3 }}
+          className="p-8 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-semibold text-white">Mood & Feedback Overview</h2>
+              <span className="text-sm text-white/60">
+                Showing {prepareChartData().length} of {entries.length + feedback.length} entries
+                {feedback.length > 0 && ` (${feedback.length} feedback entries)`}
+              </span>
             </div>
-          )}
-        </div>
-      </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePreviousPage}
+                disabled={currentPage >= Math.ceil((entries.length + feedback.length) / 10) - 1}
+                className={`p-2 rounded-lg transition-colors ${
+                  currentPage >= Math.ceil((entries.length + feedback.length) / 10) - 1
+                    ? 'bg-white/5 text-white/30 cursor-not-allowed'
+                    : 'bg-white/5 hover:bg-white/10 text-white'
+                }`}
+              >
+                <FaChevronLeft />
+              </button>
+              <span className="text-sm text-white/60">
+                Page {currentPage + 1} of {Math.ceil((entries.length + feedback.length) / 10)}
+              </span>
+              <button
+                onClick={handleNextPage}
+                disabled={currentPage === 0}
+                className={`p-2 rounded-lg transition-colors ${
+                  currentPage === 0
+                    ? 'bg-white/5 text-white/30 cursor-not-allowed'
+                    : 'bg-white/5 hover:bg-white/10 text-white'
+                }`}
+              >
+                <FaChevronRight />
+              </button>
+            </div>
+          </div>
+          <div className="h-[500px]">
+            {entries.length > 0 ? (
+              <>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={prepareChartData()}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis
+                      dataKey="formattedDate"
+                      stroke="rgba(255,255,255,0.7)"
+                      tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 12 }}
+                      tickLine={{ stroke: 'rgba(255,255,255,0.7)' }}
+                      axisLine={{ stroke: 'rgba(255,255,255,0.7)' }}
+                      interval={0}
+                      angle={-45}
+                      textAnchor="end"
+                      height={100}
+                      padding={{ left: 20, right: 20 }}
+                    />
+                    <YAxis
+                      domain={[0, 10]}
+                      stroke="rgba(255,255,255,0.7)"
+                      tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 12 }}
+                      tickLine={{ stroke: 'rgba(255,255,255,0.7)' }}
+                      axisLine={{ stroke: 'rgba(255,255,255,0.7)' }}
+                      ticks={[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
+                      padding={{ top: 20, bottom: 20 }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="mood_score"
+                      stroke="#9333ea"
+                      strokeWidth={2}
+                      dot={<CustomDot />}
+                      activeDot={<CustomDot />}
+                      name="Mood Score"
+                      connectNulls={true}
+                      isAnimationActive={true}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="feedback_score"
+                      stroke="#22c55e"
+                      strokeWidth={2}
+                      dot={{ fill: "#22c55e", strokeWidth: 2, r: 4 }}
+                      activeDot={{ fill: "#22c55e", strokeWidth: 2, r: 6 }}
+                      name="Feedback Score"
+                      connectNulls={true}
+                      isAnimationActive={true}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-400">
+                <FaChartLine className="text-5xl" />
+                <span className="ml-2 text-lg">No data available for chart</span>
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
 
       {/* Mood Summary Box */}
       {entries.length > 0 && (
@@ -417,10 +476,10 @@ const History = () => {
 
       {/* Journal Entries */}
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-white">Journal Entries</h2>
         {entries.length === 0 ? (
-          <div className="text-gray-400 text-center py-8">
-            No journal entries yet. Start writing to see your history here!
+          <div className="text-center py-12 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
+            <p className="text-gray-400 text-lg">No journal entries yet.</p>
+            <p className="text-gray-500 mt-2">Your journal entries will appear here once you create some.</p>
           </div>
         ) : (
           entries.map((entry) => (
@@ -428,26 +487,27 @@ const History = () => {
               key={entry.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-4 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 space-y-3"
+              className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 text-gray-400">
+              <div className="flex justify-between items-start mb-4">
+                <div>
                   <div className="flex items-center gap-2">
-                    <FaCalendar />
-                    <span className="text-sm">
+                    <FaCalendar className="text-purple-400" />
+                    <h3 className="text-lg font-semibold text-white">
                       {formatDate(entry.created_at)}
-                    </span>
+                    </h3>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <FaClock />
-                    <span className="text-sm">
+                  <div className="flex items-center gap-2 mt-1">
+                    <FaClock className="text-gray-400 text-sm" />
+                    <p className="text-sm text-gray-400">
                       {formatTime(entry.created_at)}
-                    </span>
+                    </p>
                   </div>
                 </div>
                 {entry.mood && (
                   <div className="flex items-center gap-2">
-                    <span className={`px-3 py-1 rounded-full text-xs ${getMoodColor(entry.mood.confidence)}`}>
+                    <span className="text-sm text-gray-400">Mood:</span>
+                    <span className={`px-3 py-1 rounded-full text-sm ${getMoodColor(entry.mood.confidence)}`}>
                       {entry.mood.primary_mood}
                     </span>
                   </div>

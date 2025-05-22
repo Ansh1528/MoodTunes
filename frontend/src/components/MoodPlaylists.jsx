@@ -85,9 +85,6 @@ const spotifyPlaylists = {
       { id: '27670o0opGxJkHKAO1voLz', name: 'HAPPY/CHEERFUL_MUSIC' },
       { id: '5bKez4vqF8xqgqF8OCyJPg', name: 'HAPPY/CHEERFUL_MUSIC' },
       { id: '0j2dHEBEqIVyxKuLqGHUto', name: 'HAPPY/CHEERFUL_MUSIC' }
-    ],
-    uplift: [
-      { id: '5bKez4vqF8xqgqF8OCyJPg', name: '' }
     ]
   },
   Sad: {
@@ -112,18 +109,11 @@ const spotifyPlaylists = {
     match: [
       { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' },
       { id: '5bKez4vqF8xqgqF8OCyJPg', name: '' }
-    ],
-    uplift: [
-      { id: '27670o0opGxJkHKAO1voLz', name: '' },
-      { id: '0o1omKG3ittTgkNtFZLLd8', name: '' }
     ]
   },
   Excited: {
     match: [
       { id: '27670o0opGxJkHKAO1voLz', name: '' }
-    ],
-    uplift: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' }
     ]
   },
   Heartbroken: {
@@ -137,15 +127,10 @@ const spotifyPlaylists = {
   Motivated: {
     match: [
       { id: '0o1omKG3ittTgkNtFZLLd8', name: '' }
-    ],
-    uplift: [
-      { id: '27670o0opGxJkHKAO1voLz', name: '' }
     ]
   },
   fearful: {
-    match: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' }
-    ],
+    
     uplift: [
       { id: '27670o0opGxJkHKAO1voLz', name: '' }
     ]
@@ -160,9 +145,7 @@ const spotifyPlaylists = {
     ]
   },
   Disgusted: {
-    match: [
-      { id: '4VCbQJz1Ylbfgnoq2xALha', name: '' }
-    ],
+   
     uplift: [
       { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' }
     ]
@@ -204,7 +187,8 @@ const MoodPlaylists = ({ currentMood, playlistType: externalPlaylistType, onPlay
   // Check if uplift is recommended
   const isUpliftRecommended = ['sad', 'heartbroken'].includes(baseMood.toLowerCase());
 
-  const handleSpotifyClick = () => {
+  const handleSpotifyClick = (e) => {
+    e.stopPropagation(); // Prevent event bubbling
     if (onSpotifyClick) {
       onSpotifyClick();
     }
@@ -269,7 +253,10 @@ const MoodPlaylists = ({ currentMood, playlistType: externalPlaylistType, onPlay
                 Listen on Spotify
               </a>
             </div>
-            <div className="aspect-w-16 aspect-h-9">
+            <div 
+              className="aspect-w-16 aspect-h-9"
+              onClick={handleSpotifyClick}
+            >
               <iframe
                 src={`https://open.spotify.com/embed/playlist/${playlist.id}?utm_source=generator`}
                 width="100%"
@@ -280,7 +267,6 @@ const MoodPlaylists = ({ currentMood, playlistType: externalPlaylistType, onPlay
                 allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                 loading="lazy"
                 className="rounded-lg"
-                onClick={handleSpotifyClick}
               ></iframe>
             </div>
           </div>

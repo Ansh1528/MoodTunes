@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { FaPencilAlt, FaHistory } from 'react-icons/fa';
+import { FaPencilAlt, FaHistory, FaMusic } from 'react-icons/fa';
 
 const DashboardLayout = ({ children }) => {
   const location = useLocation();
@@ -8,6 +8,7 @@ const DashboardLayout = ({ children }) => {
   const sidebarLinks = [
     { to: '/dashboard/new-journal', icon: FaPencilAlt, label: 'New Journal' },
     { to: '/dashboard/history', icon: FaHistory, label: 'Mood/Journal History' },
+    { to: '/dashboard/music-feedback', icon: FaMusic, label: 'Music Feedback History' },
   ];
 
   return (

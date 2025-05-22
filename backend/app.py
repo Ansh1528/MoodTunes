@@ -7,7 +7,7 @@ from flask_cors import CORS
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
 from datetime import datetime
 from config import Config
-from models import db, User, JournalEntry
+from models import db, User, JournalEntry, MusicFeedback
 from transformers import pipeline, AutoModelForSequenceClassification, AutoTokenizer
 import os
 from dotenv import load_dotenv
@@ -987,6 +987,101 @@ def analyze_mood():
         return jsonify({
             'error': 'Failed to process request',
             'details': str(e)
+        }), 500
+
+@app.route('/api/music-feedback', methods=['POST'])
+@jwt_required()
+def submit_music_feedback():
+    try:
+        current_user_id = get_jwt_identity()
+        if not current_user_id:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid or expired token'
+            }), 401
+
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+
+        # Validate required fields
+        required_fields = ['playlist_id', 'mood_score']
+        missing_fields = [field for field in required_fields if field not in data]
+        if missing_fields:
+            return jsonify({
+                'success': False,
+                'error': f'Missing required fields: {", ".join(missing_fields)}'
+            }), 400
+
+        # Validate mood score
+        mood_score = data.get('mood_score')
+        if not isinstance(mood_score, int) or mood_score < 1 or mood_score > 10:
+            return jsonify({
+                'success': False,
+                'error': 'Mood score must be an integer between 1 and 10'
+            }), 400
+
+        # Create feedback entry
+        feedback = MusicFeedback(
+            user_id=current_user_id,
+            playlist_id=data['playlist_id'],
+            mood_score=mood_score,
+            feedback_text=data.get('feedback_text', '')
+        )
+        feedback.save()
+
+        return jsonify({
+            'success': True,
+            'feedback': {
+                'id': str(feedback.id),
+                'playlist_id': feedback.playlist_id,
+                'mood_score': feedback.mood_score,
+                'feedback_text': feedback.feedback_text,
+                'created_at': feedback.created_at.isoformat()
+            }
+        }), 201
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/music-feedback', methods=['GET'])
+@jwt_required()
+def get_music_feedback():
+    try:
+        current_user_id = get_jwt_identity()
+        if not current_user_id:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid or expired token'
+            }), 401
+
+        # Get all feedback entries for the user, ordered by creation date
+        feedback_entries = MusicFeedback.objects(user_id=current_user_id).order_by('-created_at')
+        
+        # Format the response
+        feedback_list = [{
+            'id': str(feedback.id),
+            'playlist_id': feedback.playlist_id,
+            'mood_score': feedback.mood_score,
+            'feedback_text': feedback.feedback_text,
+            'created_at': feedback.created_at.isoformat()
+        } for feedback in feedback_entries]
+
+        return jsonify({
+            'success': True,
+            'feedback': feedback_list
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 # Error handling middleware

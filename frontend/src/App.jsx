@@ -6,6 +6,8 @@ import SignUp from './pages/SignUp.jsx';
 import Journal from './pages/Journal.jsx';
 import About from './pages/About.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import History from './components/History.jsx';
+import MusicFeedbackHistory from './pages/MusicFeedbackHistory.jsx';
 import Navbar from './components/Navbar.jsx';
 import ScrollToTop from './components/ScrollToTop.jsx';
 import PageTransition from './components/PageTransition.jsx';
@@ -48,7 +50,7 @@ function AnimatedRoutes() {
         }>
           <Route path="new-journal" element={<Journal />} />
           <Route path="history" element={<History />} />
-          
+          <Route path="music-feedback" element={<MusicFeedbackHistory />} />
         </Route>
       </Routes>
     </AnimatePresence>
