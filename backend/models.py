@@ -81,3 +81,17 @@ class JournalEntry(db.Document):
     def get_mood(self):
         """Get mood data"""
         return self.mood_data if self.mood_data else None
+
+class MusicFeedback(db.Document):
+    user_id = db.ReferenceField('User', required=True)
+    playlist_id = db.StringField(required=True)
+    mood_score = db.IntField(required=True, min_value=1, max_value=10)
+    feedback_text = db.StringField()
+    created_at = db.DateTimeField(default=datetime.now)
+    meta = {
+        'collection': 'music_feedback',
+        'indexes': [
+            'user_id',
+            'created_at'
+        ]
+    }

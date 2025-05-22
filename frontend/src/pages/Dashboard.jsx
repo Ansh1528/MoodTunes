@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import DashboardLayout from '../components/DashboardLayout';
 import Journal from './Journal';
 import History from '../components/History';
+import MusicFeedbackHistory from './MusicFeedbackHistory';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ const Dashboard = () => {
       <Routes>
         <Route path="new-journal" element={<Journal />} />
         <Route path="history" element={<History />} />
+        <Route path="music-feedback" element={<MusicFeedbackHistory />} />
       </Routes>
     </DashboardLayout>
   );

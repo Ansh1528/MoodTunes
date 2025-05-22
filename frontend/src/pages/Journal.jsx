@@ -44,10 +44,13 @@ const MusicFeedbackForm = ({ isOpen, onClose, onSubmit, currentMood }) => {
   const [feedback, setFeedback] = useState('');
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit({ moodScore, feedback });
-    setMoodScore(5);
-    setFeedback('');
+    e.preventDefault(); // Prevent form from refreshing
+    if (moodScore && feedback.trim()) {
+      onSubmit({ moodScore, feedback });
+      setMoodScore(5);
+      setFeedback('');
+      onClose(); // Close the form after submission
+    }
   };
 
   return (
@@ -58,11 +61,11 @@ const MusicFeedbackForm = ({ isOpen, onClose, onSubmit, currentMood }) => {
           animate={{ y: 0 }}
           exit={{ y: '-100%' }}
           transition={{ type: 'spring', damping: 20 }}
-          className="fixed top-0 left-0 right-0 bg-white/10 backdrop-blur-md border-b border-white/20 shadow-xl z-50"
+          className="fixed top-0 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-md border border-white/20 shadow-xl z-50 rounded-xl"
         >
-          <div className="max-w-4xl mx-auto">
+          <div className="w-full max-w-md">
             <div 
-              className="flex items-center justify-between p-6 bg-white/10 backdrop-blur-md border-b border-white/10"
+              className="flex items-center justify-between p-4 bg-white/10 backdrop-blur-md border-b border-white/10 rounded-t-xl"
               style={{ position: 'sticky', top: 0, zIndex: 20 }}
             >
               <div className="flex items-center gap-3">
@@ -77,10 +80,10 @@ const MusicFeedbackForm = ({ isOpen, onClose, onSubmit, currentMood }) => {
               </button>
             </div>
 
-            <div className="p-6">
-              <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="p-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-white/80 mb-3">How's your mood now?</label>
+                  <label className="block text-white/80 mb-2">How's your mood now?</label>
                   <div className="flex gap-2">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((value) => (
                       <button
@@ -100,12 +103,13 @@ const MusicFeedbackForm = ({ isOpen, onClose, onSubmit, currentMood }) => {
                 </div>
 
                 <div>
-                  <label className="block text-white/80 mb-3">How did the music affect you?</label>
+                  <label className="block text-white/80 mb-2">How did the music affect you?</label>
                   <textarea
                     value={feedback}
                     onChange={(e) => setFeedback(e.target.value)}
                     className="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-3 text-white placeholder-white/40 focus:outline-none focus:border-purple-500 resize-none"
                     placeholder="Share your thoughts about the music..."
+                    required
                   />
                 </div>
 
@@ -188,6 +192,7 @@ function Journal() {
     if (!entry.trim()) return;
 
     setIsAnalyzing(true);
+    
     setError('');
     try {
       const token = localStorage.getItem('token');
@@ -446,13 +451,9 @@ function Journal() {
     // Clear any existing feedback timer
     if (feedbackTimer) {
       clearTimeout(feedbackTimer);
+      setFeedbackTimer(null);
     }
 
-    // Start the feedback timer when playlist is opened
-    const timer = setTimeout(() => {
-      setShowFeedback(true);
-    }, 60000); // 1 minute
-    setFeedbackTimer(timer);
     setCurrentPlaylist(action);
     
     // Scroll to playlist after a short delay
@@ -473,7 +474,7 @@ function Journal() {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        `${BACKEND_URL}/api/journal/feedback`,
+        `${BACKEND_URL}/api/music-feedback`,
         {
           playlist_id: currentPlaylist,
           mood_score: feedbackData.moodScore,
@@ -490,6 +491,18 @@ function Journal() {
       if (response.data?.success) {
         setShowFeedback(false);
         setCurrentPlaylist(null);
+        
+        // Show success message
+        setError('');
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+        successMessage.textContent = 'Thank you for your feedback!';
+        document.body.appendChild(successMessage);
+        
+        // Remove success message after 3 seconds
+        setTimeout(() => {
+          document.body.removeChild(successMessage);
+        }, 3000);
       }
     } catch (err) {
       console.error('Error submitting feedback:', err);
@@ -504,10 +517,10 @@ function Journal() {
       clearTimeout(feedbackTimer);
     }
 
-    // Start a new feedback timer
+    // Start a new feedback timer for 5 minutes
     const timer = setTimeout(() => {
       setShowFeedback(true);
-    }, 60000); // 1 minute
+    }, 20000); // 5 minutes
     setFeedbackTimer(timer);
   };
 

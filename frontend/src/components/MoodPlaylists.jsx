@@ -93,11 +93,15 @@ const spotifyPlaylists = {
   Sad: {
     match: [
       { id: '4VCbQJz1Ylbfgnoq2xALha', name: 'SAD/EMOTIONAL_MUSIC' },
-      { id: '1MI8VpWOjBg7Jcv5CKensh', name: 'SAD/EMOTIONAL_MUSIC' }
+      { id: '1MI8VpWOjBg7Jcv5CKensh', name: 'SAD/EMOTIONAL_MUSIC' },
+      { id: '2ApuADsiaUfKaGD7K7eGvU', name: 'SAD/EMOTIONAL/lofi_MUSIC' },
+      { id: '1v4TPIxKoft94wJurFqlPG', name: 'SAD/EMOTIONAL/lofi_MUSIC' }
     ],
     uplift: [
       { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' },
-      { id: '27670o0opGxJkHKAO1voLz', name: 'HAPPY/CHEERFUL_MUSIC' }
+      { id: '27670o0opGxJkHKAO1voLz', name: 'HAPPY/CHEERFUL_MUSIC' },
+      { id: '4stlIpoPS7uKCsmUA7D8KZ', name: 'CHEERFUL_MUSIC'},
+      { id: '5jYQ4O9Ii3tQcSbJMtVrk8', name: 'LOFI_MUSIC'}
     ]
   },
   Angry: {
@@ -146,7 +150,8 @@ const spotifyPlaylists = {
   },
   fearful: {
     match: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' }
+      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' },
+      { id: '5jYQ4O9Ii3tQcSbJMtVrk8', name: 'LOFI_MUSIC'}
     ],
     uplift: [
       { id: '27670o0opGxJkHKAO1voLz', name: 'HAPPY/CHEERFUL_MUSIC' }
@@ -179,10 +184,12 @@ const spotifyPlaylists = {
   },
   Loving: {
     match: [
-      { id: '7xu0t5m6amzeP3Wns4lcvv', name: 'LOVE/ROMANTIC_MUSIC' }
+      { id: '7xu0t5m6amzeP3Wns4lcvv', name: 'LOVE/ROMANTIC_MUSIC' },
+      { id: '7xu0t5m6amzeP3Wns4lcvv', name:'ROMANTIC/LOVE_MUSIC'}
     ],
     uplift: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' }
+      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' },
+      { id: '0j2dHEBEqIVyxKuLqGHUto', name: 'JOYFUL/HAPPY_MUSIC' }
     ]
   }
 };
@@ -206,7 +213,8 @@ const MoodPlaylists = ({ currentMood, playlistType: externalPlaylistType, onPlay
   // Check if uplift is recommended
   const isUpliftRecommended = ['sad', 'heartbroken'].includes(baseMood.toLowerCase());
 
-  const handleSpotifyClick = () => {
+  const handleSpotifyClick = (e) => {
+    e.stopPropagation(); // Prevent event bubbling
     if (onSpotifyClick) {
       onSpotifyClick();
     }
@@ -271,7 +279,10 @@ const MoodPlaylists = ({ currentMood, playlistType: externalPlaylistType, onPlay
                 Listen on Spotify
               </a>
             </div>
-            <div className="aspect-w-16 aspect-h-9">
+            <div 
+              className="aspect-w-16 aspect-h-9"
+              onClick={handleSpotifyClick}
+            >
               <iframe
                 src={`https://open.spotify.com/embed/playlist/${playlist.id}?utm_source=generator`}
                 width="100%"
@@ -282,7 +293,6 @@ const MoodPlaylists = ({ currentMood, playlistType: externalPlaylistType, onPlay
                 allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
                 loading="lazy"
                 className="rounded-lg"
-                onClick={handleSpotifyClick}
               ></iframe>
             </div>
           </div>
