@@ -87,12 +87,13 @@ const spotifyPlaylists = {
       { id: '0j2dHEBEqIVyxKuLqGHUto', name: 'HAPPY/CHEERFUL_MUSIC' }
     ],
     uplift: [
-      { id: '5bKez4vqF8xqgqF8OCyJPg', name: '' }
+      { id: '5bKez4vqF8xqgqF8OCyJPg', name: 'HAPPY/CHEERFUL_MUSIC' }
     ]
   },
   Sad: {
     match: [
-      { id: '4VCbQJz1Ylbfgnoq2xALha', name: 'SAD/EMOTIONAL_MUSIC' }
+      { id: '4VCbQJz1Ylbfgnoq2xALha', name: 'SAD/EMOTIONAL_MUSIC' },
+      { id: '1MI8VpWOjBg7Jcv5CKensh', name: 'SAD/EMOTIONAL_MUSIC' }
     ],
     uplift: [
       { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' },
@@ -105,49 +106,50 @@ const spotifyPlaylists = {
       { id: '43mIFkoYDEpgPZfn64E1Xr', name: 'ANGRY/UPSET_MUSIC' }
     ],
     uplift: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' }
+      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' }
     ]
   },
   Calm: {
     match: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' },
-      { id: '5bKez4vqF8xqgqF8OCyJPg', name: '' }
+      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' },
+      { id: '5bKez4vqF8xqgqF8OCyJPg', name: 'HAPPY/CHEERFUL_MUSIC' }
     ],
     uplift: [
-      { id: '27670o0opGxJkHKAO1voLz', name: '' },
-      { id: '0o1omKG3ittTgkNtFZLLd8', name: '' }
+      { id: '27670o0opGxJkHKAO1voLz', name: 'HAPPY/CHEERFUL_MUSIC' },
+      { id: '0o1omKG3ittTgkNtFZLLd8', name: 'ANGRY/UPSET_MUSIC' }
     ]
   },
   Excited: {
     match: [
-      { id: '27670o0opGxJkHKAO1voLz', name: '' }
+      { id: '27670o0opGxJkHKAO1voLz', name: 'HAPPY/CHEERFUL_MUSIC' }
     ],
     uplift: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' }
+      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' }
     ]
   },
   Heartbroken: {
     match: [
-      { id: '4VCbQJz1Ylbfgnoq2xALha', name: '' }
+      { id: '4VCbQJz1Ylbfgnoq2xALha', name: 'SAD/EMOTIONAL_MUSIC' }
     ],
     uplift: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' }
+      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' }
     ]
   },
   Motivated: {
     match: [
-      { id: '0o1omKG3ittTgkNtFZLLd8', name: '' }
+      { id: '0o1omKG3ittTgkNtFZLLd8', name: 'ANGRY/UPSET_MUSIC' },
+      { id: '7ljIrD6LQLGSwD9T1NcP3U', name: 'MOTIVATIONAL_MUSIC' }
     ],
     uplift: [
-      { id: '27670o0opGxJkHKAO1voLz', name: '' }
+      { id: '27670o0opGxJkHKAO1voLz', name: 'HAPPY/CHEERFUL_MUSIC' }
     ]
   },
   fearful: {
     match: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' }
+      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' }
     ],
     uplift: [
-      { id: '27670o0opGxJkHKAO1voLz', name: '' }
+      { id: '27670o0opGxJkHKAO1voLz', name: 'HAPPY/CHEERFUL_MUSIC' }
     ]
   },
   Surprised: {
@@ -156,31 +158,31 @@ const spotifyPlaylists = {
       { id: '4VCbQJz1Ylbfgnoq2xALha', name: 'SAD/EMOTIONAL_MUSIC' }
     ],
     uplift: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' }
+      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' }
     ]
   },
   Disgusted: {
     match: [
-      { id: '4VCbQJz1Ylbfgnoq2xALha', name: '' }
+      { id: '4VCbQJz1Ylbfgnoq2xALha', name: 'SAD/EMOTIONAL_MUSIC' }
     ],
     uplift: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' }
+      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' }
     ]
   },
   Neutral: {
     match: [
-      { id: '4VCbQJz1Ylbfgnoq2xALha', name: '' }
+      { id: '4VCbQJz1Ylbfgnoq2xALha', name: 'SAD/EMOTIONAL_MUSIC' }
     ],
     uplift: [
-      { id: '27670o0opGxJkHKAO1voLz', name: '' }
+      { id: '27670o0opGxJkHKAO1voLz', name: 'HAPPY/CHEERFUL_MUSIC' }
     ]
   },
   Loving: {
     match: [
-      { id: '7xu0t5m6amzeP3Wns4lcvv', name: '' }
+      { id: '7xu0t5m6amzeP3Wns4lcvv', name: 'LOVE/ROMANTIC_MUSIC' }
     ],
     uplift: [
-      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: '' }
+      { id: '4PdfP3cW6pSXVp6CUaaWfz', name: 'CALM/RELAXING_MUSIC' }
     ]
   }
 };
