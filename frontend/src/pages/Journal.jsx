@@ -519,7 +519,7 @@ function Journal() {
     // Start a new feedback timer for 5 minutes
     const timer = setTimeout(() => {
       setShowFeedback(true);
-    }, 20000); // 5 minutes
+    }, 300000); // 5 minutes
     setFeedbackTimer(timer);
   };
 
