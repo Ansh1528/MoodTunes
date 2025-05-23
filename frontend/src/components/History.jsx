@@ -110,13 +110,11 @@ const History = () => {
   const [error, setError] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [showGraph, setShowGraph] = useState(false);
-<<<<<<< HEAD
-  const [filter, setFilter] = useState('all'); // 'all', 'recent', 'high-scores'
-=======
+
   const [showFilter, setShowFilter] = useState(false);
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [moodFilter, setMoodFilter] = useState('');
->>>>>>> 4354e7c42ee4fca582e620c87e5b0b0c92c5f53f
+
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -226,85 +224,6 @@ const History = () => {
     setCurrentPage(prev => Math.max(prev - 1, 0));
   };
 
-<<<<<<< HEAD
-  const getFilteredEntries = () => {
-    switch (filter) {
-      case 'recent':
-        return entries.slice(0, 5); // Show only last 5 entries
-      case 'high-scores':
-        return entries.filter(entry => getMoodScore(entry) >= 8);
-      default:
-        return entries;
-    }
-  };
-
-  const handleDownloadReport = () => {
-    // Create PDF document
-    const doc = new jsPDF();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    
-    // Add title
-    doc.setFontSize(20);
-    doc.setTextColor(147, 51, 234); // Purple color
-    doc.text('Mood & Journal History Report', pageWidth / 2, 20, { align: 'center' });
-    
-    // Add date
-    doc.setFontSize(12);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Generated on ${dayjs().format('MMMM D, YYYY')}`, pageWidth / 2, 30, { align: 'center' });
-    
-    // Add mood summary
-    const moodSummary = getMoodSummary(prepareChartData());
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Mood Summary', 20, 45);
-    doc.setFontSize(12);
-    doc.text(moodSummary.message, 20, 55);
-    
-    // Add entries table
-    const tableColumn = ['Date', 'Time', 'Mood', 'Mood Score', 'Content'];
-    const tableRows = entries.map(entry => [
-      formatDate(entry.created_at),
-      formatTime(entry.created_at),
-      entry.mood?.primary_mood || 'N/A',
-      getMoodScore(entry).toString(),
-      entry.content
-    ]);
-    
-    doc.autoTable({
-      head: [tableColumn],
-      body: tableRows,
-      startY: 65,
-      theme: 'grid',
-      headStyles: {
-        fillColor: [147, 51, 234],
-        textColor: 255,
-        fontSize: 12,
-        fontStyle: 'bold'
-      },
-      bodyStyles: {
-        fontSize: 10
-      },
-      columnStyles: {
-        0: { cellWidth: 40 },
-        1: { cellWidth: 30 },
-        2: { cellWidth: 40 },
-        3: { cellWidth: 30 },
-        4: { cellWidth: 'auto' }
-      }
-    });
-    
-    // Add statistics
-    const finalY = doc.lastAutoTable.finalY || 65;
-    doc.setFontSize(14);
-    doc.text('Statistics', 20, finalY + 20);
-    doc.setFontSize(12);
-    doc.text(`Total Entries: ${entries.length}`, 20, finalY + 30);
-    doc.text(`Average Mood Score: ${(entries.reduce((acc, entry) => acc + getMoodScore(entry), 0) / entries.length).toFixed(1)}`, 20, finalY + 40);
-    
-    // Save the PDF
-    doc.save(`journal-history-${dayjs().format('YYYY-MM-DD')}.pdf`);
-=======
   const handleDownload = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -370,7 +289,6 @@ const History = () => {
     setDateRange({ start: '', end: '' });
     setMoodFilter('');
     setShowFilter(false);
->>>>>>> 4354e7c42ee4fca582e620c87e5b0b0c92c5f53f
   };
 
   useEffect(() => {
@@ -462,22 +380,14 @@ const History = () => {
         </div>
         <div className="flex gap-2">
           <button 
-<<<<<<< HEAD
-            onClick={() => setFilter(filter === 'all' ? 'recent' : filter === 'recent' ? 'high-scores' : 'all')}
-=======
             onClick={() => setShowFilter(!showFilter)}
->>>>>>> 4354e7c42ee4fca582e620c87e5b0b0c92c5f53f
             className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm transition-all flex items-center gap-2 hover:shadow-lg hover:shadow-purple-500/20"
           >
             <FaFilter />
-            {filter === 'all' ? 'All Entries' : filter === 'recent' ? 'Recent' : 'High Scores'}
+            {showFilter ? 'Hide Filter' : 'Show Filter'}
           </button>
           <button 
-<<<<<<< HEAD
-            onClick={handleDownloadReport}
-=======
             onClick={handleDownload}
->>>>>>> 4354e7c42ee4fca582e620c87e5b0b0c92c5f53f
             className="px-4 py-2 rounded-lg bg-purple-500 hover:bg-purple-600 text-white text-sm transition-all flex items-center gap-2 hover:shadow-lg hover:shadow-purple-500/20"
           >
             <FaDownload />
@@ -701,11 +611,7 @@ const History = () => {
             <p className="text-gray-500 mt-2">Your journal entries will appear here once you create some.</p>
           </div>
         ) : (
-<<<<<<< HEAD
-          getFilteredEntries().map((entry) => (
-=======
           applyFilters(entries).map((entry) => (
->>>>>>> 4354e7c42ee4fca582e620c87e5b0b0c92c5f53f
             <motion.div
               key={entry.id}
               initial={{ opacity: 0, y: 20 }}
